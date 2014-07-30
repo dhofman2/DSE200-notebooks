@@ -43,12 +43,14 @@ import subprocess
 import sys,os,re,webbrowser,select
 from string import rstrip
 import argparse
+from AWSCredentials import *
 
 
 ami='ami-18d33e70'             # Image configured for big data class
 # AMI name: ERM_Utils These two lines last updated 5/11/2014
 
-# Read Credentials 
+# Read Credentials
+'''
 try:
     vault=os.environ['EC2_VAULT']
     file=open(vault+'/Creds.pkl')
@@ -64,6 +66,7 @@ try:
 except Exception, e:
     print e
     sys.exit('could not read credentials')
+'''
 
 # open connection
 def open_connection(aws_access_key_id,
