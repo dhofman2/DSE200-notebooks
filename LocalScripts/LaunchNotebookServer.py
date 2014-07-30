@@ -157,6 +157,14 @@ def Send_Command(command,callback,dont_wait=False):
 
     endReached=False
     while not endReached:
+        # Check for errors before checking the output
+        if dataWaiting(ssh_process.stderr):
+            line=ssh_process.stderr.readline()
+            if len(line)>0:
+                print line
+            else:
+                endReached=True
+
         if dataWaiting(ssh_process.stdout):
             line=ssh_process.stdout.readline()
             if len(line)>0:
