@@ -4,7 +4,7 @@
 
 ### Before you run this script ###
  Before running this script, you need to install boto on your local machine (not ec2).
- See https://pypi.python.org/pypi/boto. 
+ See https://pypi.python.org/pypi/boto.
  You can use either "sudo pip install boto" or "sudo easy_install boto"
 
 ### Security credentials ###
@@ -12,18 +12,18 @@
 
 Here are the steps you need to follow to achieve this
 
- 1. Open an AWS account  
- 2. Create a key-pair so that  you can connect securely to your instances.  
+ 1. Open an AWS account
+ 2. Create a key-pair so that  you can connect securely to your instances.
  3. Create a Security group to define which IPs can connect to your instances and through which ports.
  You need to complete these steps only one time. Later sessions can use the same credentials. If you are registered to the
  class you will get a credit of $100 towards your use of AWS. To get this credit goto the page "consolidated billing" (xxxx) and send a request to the class instructor.
- 
+
  #### Security credentials ####
  In order to start your EC2 Session you need two things:
- 
+
  1. A key-pair
  2. A security group
- 
+
  Before you try to connect to an EC2 instance make sure that the
  security group that you are using contains the IP address that you
  are connecting from. The security group estricts which IP addresses
@@ -45,10 +45,11 @@ from string import rstrip
 import argparse
 from AWSCredentials import *
 
+# AMI name: ERM_Utils These two lines last updated 8/27/2014
+ami_owner_id = '400268158021'
+ami_name = 'ERM_Utils'
 
-ami='ami-18d33e70'             # Image configured for big data class
-# AMI name: ERM_Utils These two lines last updated 5/11/2014
-
+# TODO: Sort out credentials, use import or pickle?
 # Read Credentials
 '''
 try:
@@ -118,7 +119,6 @@ def kill_all_notebooks():
 
 def set_credentials():
     """ set ID and secret key as environment variables on the remote machine"""
-    
 
 def copy_credentials(LocalDir):
     from glob import glob
@@ -144,7 +144,7 @@ def create_image(image_name):
 
 def Send_Command(command,callback,dont_wait=False):
     init=time.time()
-    
+
     print 'SendCommand:',' '.join(ssh+command)
     ssh_process = subprocess.Popen(ssh+command,
                                    shell=False,
@@ -169,7 +169,7 @@ def Send_Command(command,callback,dont_wait=False):
             line=ssh_process.stdout.readline()
             if len(line)>0:
                 print line,
-                
+
                 endReached = endReached | callback(line)
 
                 matchEnd=re.match('=== END ===',line)
@@ -180,7 +180,7 @@ def Send_Command(command,callback,dont_wait=False):
 
 def Launch_notebook(name=''):
     init=time.time()
-    
+
     command=["scripts/launch_notebook.py",name,"2>&1"]
 
     def detect_launch_port(line):
@@ -246,22 +246,29 @@ if __name__ == "__main__":
     if instance_alive==-1: # if there is no instance that is pending or running, create one
         instance_type=args['instance_type']
         disk_size=args['disk_size']
-        print 'launching an ec2 instance, instance type=',instance_type,', ami=',ami,', disk size=',disk_size
+
+        print 'launching an ec2 instance, instance type=', instance_type, ', ami=', ami_name, ', disk size=', disk_size
 
         bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping()
         if disk_size>0:
             dev_sda1 = boto.ec2.blockdevicemapping.EBSBlockDeviceType()
             dev_sda1.size = disk_size # size in Gigabytes
-            bdm['/dev/sda1'] = dev_sda1 
+            bdm['/dev/sda1'] = dev_sda1
 
-        reservation=conn.run_instances(ami,
-                                       key_name=key_name,
-                                       instance_type=instance_type,
-                                       security_groups=security_groups,
-                                       block_device_map = bdm)
+        images = conn.get_all_images(filters={'owner-id': ami_owner_id, 'name': ami_name})
+
+        # Attempt to start an instance only if one AMI image is returned
+        if len(images) == 1:
+            reservation = images[0].run(key_name=key_name,
+                                        instance_type=instance_type,
+                                        security_groups=security_groups,
+                                        block_device_map=bdm)
+        else:
+            print "Error finding AMI Image"
+            sys.exit("Error finding AMI Image")
 
         print 'Launched Instance',reservation
-        
+
         (instances,instance_alive) = report_all_instances()
 
     # choose an instance and check that it is running
@@ -275,7 +282,7 @@ if __name__ == "__main__":
 
     if(args['password'] != None):
         set_password(args['password'])
-    
+
     if(args['kill']):
         print "closing all notebook servers"
         kill_all_notebooks()
@@ -290,5 +297,3 @@ if __name__ == "__main__":
 
     if(args['Copy_Credentials']!= None):
        copy_credentials(args['Copy_Credentials'])
-       
-
