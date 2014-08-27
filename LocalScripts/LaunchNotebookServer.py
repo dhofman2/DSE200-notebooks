@@ -274,8 +274,10 @@ if __name__ == "__main__":
     # choose an instance and check that it is running
     instance = instances[instance_alive]
     while instance.state != 'running':
-        print '\r',time.strftime('%H:%M:%S'),instance.state,
-        time.sleep(5)
+        print '\r', time.strftime('%H:%M:%S'), 'Instance status: ', instance.state
+        time.sleep(10)
+        instance.update()
+
     print '\n Instance Ready!',time.strftime('%H:%M:%S'),instance.state
     ssh=['ssh','-i',keyPairFile,('%s@%s' % (login_id,instance.public_dns_name))]
     print "To connect to instance, use:\n",' '.join(ssh)
