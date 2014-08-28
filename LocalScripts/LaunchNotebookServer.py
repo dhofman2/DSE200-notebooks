@@ -249,6 +249,21 @@ if __name__ == "__main__":
 
         print 'launching an ec2 instance, instance type=', instance_type, ', ami=', ami_name, ', disk size=', disk_size
 
+        # Check for the iPython Notebook security group and create it if missing
+        security_groups = ['iPython_Notebook']
+        security_group_found = False
+
+        for g in conn.get_all_security_groups():
+            if g.name == "iPython_Notebook":
+                print "iPython Notebook security group found..."
+                security_group_found = True
+
+        if security_group_found is False:
+            print "Creating iPython Notebook security group..."
+            sg = conn.create_security_group('iPython_Notebook', 'Security Group for MAS DSE')
+            sg.authorize('tcp', 22, 22, '0.0.0.0/0')       # Allow SSH
+            sg.authorize('tcp', 8888, 8888, '0.0.0.0/0')   # Allow iPython Notebook
+
         bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping()
         if disk_size>0:
             dev_sda1 = boto.ec2.blockdevicemapping.EBSBlockDeviceType()
