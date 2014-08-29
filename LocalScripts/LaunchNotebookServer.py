@@ -44,6 +44,8 @@ import sys,os,re,webbrowser,select
 from string import rstrip
 import argparse
 from os.path import expanduser
+import json
+from urllib2 import urlopen
 
 # AMI name: ERM_Utils These two lines last updated 8/27/2014
 ami_owner_id = '400268158021'
@@ -63,16 +65,34 @@ else:
 try:
     credentials_file = open(vault + '/Creds.pkl')
     credentials = pickle.load(credentials_file)
-    print credentials
-    aws_access_key_id = credentials['key_id']
-    aws_secret_access_key = credentials['secret_key']
-    user_name = credentials['ID']
-    key_pair_file = credentials['ssh_key_pair_file'] # name of local file storing keypair
-    key_name = credentials['ssh_key_name']         # name of keypair on AWS
-    #security_groups=Creds['security_groups'] # security groups for controlling access
 except Exception, e:
     print e
-    sys.exit('could not read credentials')
+    sys.exit('Could not read Creds.pkl')
+
+for c in credentials:
+    if c == "key_id":
+        aws_access_key_id = credentials['key_id']
+    elif c == "secret_key":
+        aws_secret_access_key = credentials['secret_key']
+    elif c == "ID":
+        user_name = credentials['ID']
+    elif c == "ssh_key_pair_file":
+        key_pair_file = credentials['ssh_key_pair_file']    # name of local file storing keypair
+    elif c == "ssh_key_name":
+        key_name = credentials['ssh_key_name']              # name of keypair on AWS
+    elif c == "security_groups":
+        security_groups = credentials['security_groups']    # security groups for controlling access
+
+# These credentials are required to be set before proceeding
+try:
+    aws_access_key_id
+    aws_secret_access_key
+    user_name
+    key_pair_file
+    key_name
+except NameError, e:
+    print e
+    sys.exit("Not all of the credentials were defined")
 
 
 # open connection
@@ -255,20 +275,32 @@ if __name__ == "__main__":
 
         print 'launching an ec2 instance, instance type=', instance_type, ', ami=', ami_name, ', disk size=', disk_size
 
-        # Check for the iPython Notebook security group and create it if missing
-        security_groups = ['iPython_Notebook']
-        security_group_found = False
+        # Use the security group in Creds.pkl, otherwise use a security group based on the current ip address
+        try:
+            security_groups
+            print "Using security group from Creds.pkl"
+        except NameError:
+            # Open http://httpbin.org/ip to get the public ip address
+            ip_address = json.load(urlopen('http://httpbin.org/ip'))['origin']
 
-        for g in conn.get_all_security_groups():
-            if g.name == "iPython_Notebook":
-                print "iPython Notebook security group found..."
-                security_group_found = True
+            security_group_name = "Allow all from " + str(ip_address)
 
-        if security_group_found is False:
-            print "Creating iPython Notebook security group..."
-            sg = conn.create_security_group('iPython_Notebook', 'Security Group for MAS DSE')
-            sg.authorize('tcp', 22, 22, '0.0.0.0/0')       # Allow SSH
-            sg.authorize('tcp', 8888, 8888, '0.0.0.0/0')   # Allow iPython Notebook
+            # Check for the security group and create it if missing
+            security_groups = [security_group_name]
+            security_group_found = False
+
+            for g in conn.get_all_security_groups():
+                if g.name == security_group_name:
+                    print "Security group found..."
+                    security_group_found = True
+
+            if security_group_found is False:
+                print "Creating security group..."
+                security_group_description = "MAS DSE created on " + str(time.strftime("%d/%m/%Y"))
+                sg = conn.create_security_group(security_group_name, security_group_description)
+                sg.authorize('tcp', 0, 65535, str(ip_address) + "/32")  # Allow all TCP
+                sg.authorize('udp', 0, 65535, str(ip_address) + "/32")  # Allow all UDP
+                sg.authorize('icmp', -1, -1, str(ip_address) + "/32")   # Allow all ICMP
 
         bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping()
         if disk_size>0:
