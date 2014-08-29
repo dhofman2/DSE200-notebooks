@@ -7,9 +7,21 @@ import sys,os
 from glob import glob
 import AWS_keypair_management
 import pickle
+from os.path import expanduser
 
-vault=os.environ['EC2_VAULT']
-print 'files in'+ vault+'/* :\n','\n'.join(glob(vault+'/*'))
+
+# If the EC2_VAULT environ var is set then use it, otherwise default to ~/Vault/
+try:
+    os.environ['EC2_VAULT']
+except KeyError:
+    vault = expanduser("~") + '/Vault'
+else:
+    vault = os.environ['EC2_VAULT']
+
+if os.path.isdir(vault):
+    print 'files in' + vault + '/* :\n', '\n'.join(glob(vault+'/*'))
+else:
+    sys.exit("Vault directory not found.")
 
 AWS_KM=AWS_keypair_management.AWS_keypair_management()
 (Creds,bad_files) =AWS_KM.Get_Working_Credentials(vault)
