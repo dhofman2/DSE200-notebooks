@@ -1,19 +1,29 @@
+#!/usr/bin/env python
 from glob import glob
 from string import strip
 from os import chdir,getcwd
-from mrjob.emr import EMRJobRunner
+import boto.ec2
 import json,pprint
 
 import sys,os
 #possible home directories for "UCSD_Big_data"
 home_dirs=['/home/ubuntu','/Users/yoavfreund/BigData']
 
+
 class AWS_keypair_management:
-    def test_key_pair(self,Access_Key_Id,Secret_Access_Key):
+    def test_key_pair(self, aws_access_key_id, aws_secret_access_key):
+
         try:
-            JobRunner = EMRJobRunner(aws_access_key_id=Access_Key_Id,aws_secret_access_key=Secret_Access_Key)
+            conn = boto.ec2.connect_to_region("us-east-1",
+                                              aws_access_key_id=aws_access_key_id,
+                                              aws_secret_access_key=aws_secret_access_key)
+
+            conn.get_all_regions()
+            conn.close()
             return True
-        except:
+        except boto.ec2.EC2Connection.ResponseError:
+            print "AWS Access Key ID and Access Key are incorrect!"
+            conn.close()
             return False
 
     def Get_Working_Credentials(self,path):
@@ -99,6 +109,3 @@ if __name__=='__main__':
         password=entry['Passwords'][0]
         file.write(Template%(username,aws_id,aws_secret,password))
         file.close()
-
-    
-
