@@ -9,6 +9,7 @@ from glob import glob
 import AWS_keypair_management
 import pickle
 from os.path import expanduser
+import boto.ec2
 
 
 # If the EC2_VAULT environ var is set then use it, otherwise default to ~/Vault/
@@ -45,13 +46,28 @@ print 'Using the 0 elements from \n', entry
 key_id = entry['Creds'][0]['Access_Key_Id']
 secret_key = entry['Creds'][0]['Secret_Access_Key']
 
-security_group = raw_input('\n\nEnter the name of an existing EC2 security group defined in the management console\n'
-                           'OR\n'
-                           'Leave blank to always create new a security group for your ip address: ')
-security_groups = [security_group]
+conn = boto.ec2.connect_to_region("us-east-1",
+                                  aws_access_key_id=key_id,
+                                  aws_secret_access_key=secret_key)
 
-if security_group == "":
-    security_group = None
+# Ask for an EC2 security group or allow LaunchNotebookServer.py to create a new security group based on the current
+# ip address. If an EC2 security group is entered, then verify it exists in EC2 before proceeding.
+security_group_loop = True
+while security_group_loop:
+    security_group = raw_input('\nEnter the name of an existing EC2 security group defined in the management console\n'
+                               'OR\n'
+                               'Leave blank to always create new a security group for your ip address: ')
+    security_groups = [security_group]
+
+    if security_group == "":
+        security_group = None
+        security_group_loop = False
+    else:
+        for g in conn.get_all_security_groups():
+            if g.name == security_group:
+                security_group_loop = False
+        if security_group_loop:
+            print "Security group not found..."
 
 ssh_key_name = raw_input('Enter the EC2 key pair name defined in the management console: ')
 ssh_key_pair_file = '///'
@@ -64,11 +80,11 @@ print 'security groups: %s' % security_groups
 
 with open(vault+'/Creds.pkl', 'wb') as pickle_file:
     if security_group is None:
-       pickle.dump({'ID': ID,
-                    'key_id': key_id,
-                    'secret_key': secret_key,
-                    'ssh_key_name': ssh_key_name,
-                    'ssh_key_pair_file': ssh_key_pair_file}, pickle_file)
+        pickle.dump({'ID': ID,
+                     'key_id': key_id,
+                     'secret_key': secret_key,
+                     'ssh_key_name': ssh_key_name,
+                     'ssh_key_pair_file': ssh_key_pair_file}, pickle_file)
     else:
         pickle.dump({'ID': ID,
                      'key_id': key_id,
