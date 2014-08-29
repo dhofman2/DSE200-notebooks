@@ -46,6 +46,7 @@ print 'Using the 0 elements from \n', entry
 key_id = entry['Creds'][0]['Access_Key_Id']
 secret_key = entry['Creds'][0]['Secret_Access_Key']
 
+# TODO: make us-east-1 variable
 conn = boto.ec2.connect_to_region("us-east-1",
                                   aws_access_key_id=key_id,
                                   aws_secret_access_key=secret_key)
@@ -69,7 +70,34 @@ while security_group_loop:
         if security_group_loop:
             print "Security group not found..."
 
-ssh_key_name = raw_input('Enter the EC2 key pair name defined in the management console: ')
+# List all of the EC2 key pair names defined on the server and allow the user to choose which one to use. Keep looping
+# until a valid selection is made
+ssh_key_name_loop = True
+while ssh_key_name_loop:
+    print "\nWhich EC2 SSH key pair would you like to use to login to your instances? "
+    print "\nSSH key pairs defined in the EC2 management console:"
+    server_ssh_key_pairs = conn.get_all_key_pairs()
+
+    # display the ssh key pair menu
+    i = 0
+    for k in server_ssh_key_pairs:
+        print "\t[%s] %s" % (i, k.name)
+        i += 1
+
+    user_input = raw_input('\nSelect an SSH key pair: ')
+
+    try:
+        ssh_key_name = server_ssh_key_pairs[int(user_input)].name
+    except (ValueError, IndexError):
+        ssh_key_name = None
+        print "Invalid input!"
+
+    for k in server_ssh_key_pairs:
+        if k.name == ssh_key_name:
+            ssh_key_name_loop = False
+    if ssh_key_name_loop:
+        print "EC2 key pair not found..."
+
 ssh_key_pair_file = '///'
 while not os.path.isfile(ssh_key_pair_file):
     ssh_key_pair_file = raw_input('Enter the full path to the key pair file (extension .pem)? ')
@@ -92,3 +120,4 @@ with open(vault+'/Creds.pkl', 'wb') as pickle_file:
                      'ssh_key_name': ssh_key_name,
                      'ssh_key_pair_file': ssh_key_pair_file,
                      'security_groups': security_groups}, pickle_file)
+conn.close()
