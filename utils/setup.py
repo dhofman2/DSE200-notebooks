@@ -55,20 +55,36 @@ conn = boto.ec2.connect_to_region("us-east-1",
 # ip address. If an EC2 security group is entered, then verify it exists in EC2 before proceeding.
 security_group_loop = True
 while security_group_loop:
-    security_group = raw_input('\nEnter the name of an existing EC2 security group defined in the management console\n'
-                               'OR\n'
-                               'Leave blank to always create new a security group for your ip address: ')
-    security_groups = [security_group]
+    print "\nWhich EC2 security group would you like to use for instances? "
+    print "\nSecurity groups defined in the EC2 management console:"
+    server_security_groups = conn.get_all_security_groups()
 
-    if security_group == "":
+    # display the security group menu
+    i = 0
+    for g in server_security_groups:
+        print "\t[%s] %s" % (i, g.name)
+        i += 1
+
+    user_input = raw_input('\nSelect a security group OR enter nothing to create security groups based on your current '
+                           'ip address: ')
+
+    if user_input == "":
         security_group = None
         security_group_loop = False
     else:
+        try:
+            security_group = str(server_security_groups[int(user_input)].name)
+        except (ValueError, IndexError):
+            security_group = None
+            print "Invalid input!"
+
         for g in conn.get_all_security_groups():
             if g.name == security_group:
                 security_group_loop = False
         if security_group_loop:
             print "Security group not found..."
+
+    security_groups = [security_group]
 
 # List all of the EC2 key pair names defined on the server and allow the user to choose which one to use. Keep looping
 # until a valid selection is made
