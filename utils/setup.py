@@ -45,22 +45,34 @@ print 'Using the 0 elements from \n', entry
 key_id = entry['Creds'][0]['Access_Key_Id']
 secret_key = entry['Creds'][0]['Secret_Access_Key']
 
-security_group = raw_input('What security group do you want to use? ')
+security_group = raw_input('\n\nEnter the name of an existing EC2 security group defined in the management console\n'
+                           'OR\n'
+                           'Leave blank to always create new a security group for your ip address: ')
 security_groups = [security_group]
 
-ssh_key_name = raw_input('What is your ssh key name? ')
+if security_group == "":
+    security_group = None
+
+ssh_key_name = raw_input('Enter the EC2 key pair name defined in the management console: ')
 ssh_key_pair_file = '///'
 while not os.path.isfile(ssh_key_pair_file):
-    ssh_key_pair_file = raw_input('What is the name (full path) of your keypair file (extension .pem)? ')
+    ssh_key_pair_file = raw_input('Enter the full path to the key pair file (extension .pem)? ')
 
 print 'ID: %s, key_id: %s, secret_key: %s' % (ID, key_id, secret_key)
 print 'ssh_key_name: %s, ssh_key_pair_file: %s' % (ssh_key_name, ssh_key_pair_file)
 print 'security groups: %s' % security_groups
 
 with open(vault+'/Creds.pkl', 'wb') as pickle_file:
-    pickle.dump({'ID': ID,
-                 'key_id': key_id,
-                 'secret_key': secret_key,
-                 'ssh_key_name': ssh_key_name,
-                 'ssh_key_pair_file': ssh_key_pair_file,
-                 'security_groups': security_groups}, pickle_file)
+    if security_group is None:
+       pickle.dump({'ID': ID,
+                    'key_id': key_id,
+                    'secret_key': secret_key,
+                    'ssh_key_name': ssh_key_name,
+                    'ssh_key_pair_file': ssh_key_pair_file}, pickle_file)
+    else:
+        pickle.dump({'ID': ID,
+                     'key_id': key_id,
+                     'secret_key': secret_key,
+                     'ssh_key_name': ssh_key_name,
+                     'ssh_key_pair_file': ssh_key_pair_file,
+                     'security_groups': security_groups}, pickle_file)
