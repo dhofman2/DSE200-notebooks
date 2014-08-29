@@ -43,31 +43,37 @@ import subprocess
 import sys,os,re,webbrowser,select
 from string import rstrip
 import argparse
-from AWSCredentials import *
+from os.path import expanduser
 
 # AMI name: ERM_Utils These two lines last updated 8/27/2014
 ami_owner_id = '400268158021'
 ami_name = 'ERM_Utils'
 
-# TODO: Sort out credentials, use import or pickle?
 # Read Credentials
-'''
+#
+# If the EC2_VAULT environ var is set then use it, otherwise default to ~/Vault/
 try:
-    vault=os.environ['EC2_VAULT']
-    file=open(vault+'/Creds.pkl')
-    ALL_Creds=pickle.load(file)
-    Creds=ALL_Creds['launcher']
-    print Creds
-    aws_access_key_id=Creds['key_id']
-    aws_secret_access_key=Creds['secret_key']
-    user_name=Creds['ID']
-    keyPairFile=Creds['ssh_key_pair_file'] # name of local file storing keypair
-    key_name=Creds['ssh_key_name']         # name of keypair on AWS
-    security_groups=Creds['security_groups'] # security groups for controlling access
+    os.environ['EC2_VAULT']
+except KeyError:
+    vault = expanduser("~") + '/Vault'
+else:
+    vault = os.environ['EC2_VAULT']
+
+# Read credentials from vault/Creds.pkl
+try:
+    credentials_file = open(vault + '/Creds.pkl')
+    credentials = pickle.load(credentials_file)
+    print credentials
+    aws_access_key_id = credentials['key_id']
+    aws_secret_access_key = credentials['secret_key']
+    user_name = credentials['ID']
+    key_pair_file = credentials['ssh_key_pair_file'] # name of local file storing keypair
+    key_name = credentials['ssh_key_name']         # name of keypair on AWS
+    #security_groups=Creds['security_groups'] # security groups for controlling access
 except Exception, e:
     print e
     sys.exit('could not read credentials')
-'''
+
 
 # open connection
 def open_connection(aws_access_key_id,
@@ -105,7 +111,7 @@ def report_all_instances():
                         pending=False
                     elif instance.state =='pending' and pending:
                         instance_alive=count # point to first pending instance
-                    print 'ssh -i %s %s@%s' % (keyPairFile,login_id,instance.public_dns_name)
+                    print 'ssh -i %s %s@%s' % (key_pair_file,login_id,instance.public_dns_name)
                     instances.append(instance)
                     count+=1
 
@@ -126,7 +132,7 @@ def copy_credentials(LocalDir):
     mkdir=['mkdir','Vault']
     Send_Command(mkdir,emptyCallBack,dont_wait=True)
     list=glob(args['Copy_Credentials'])
-    scp=['scp','-i',keyPairFile]+list+[('%s@%s:Vault/' % (login_id,instance.public_dns_name))]
+    scp=['scp','-i',key_pair_file]+list+[('%s@%s:Vault/' % (login_id,instance.public_dns_name))]
     print ' '.join(scp)
     subprocess.call(scp)
 
@@ -294,7 +300,7 @@ if __name__ == "__main__":
         instance.update()
 
     print '\n Instance Ready!',time.strftime('%H:%M:%S'),instance.state
-    ssh=['ssh','-i',keyPairFile,('%s@%s' % (login_id,instance.public_dns_name))]
+    ssh=['ssh','-i',key_pair_file,('%s@%s' % (login_id,instance.public_dns_name))]
     print "To connect to instance, use:\n",' '.join(ssh)
 
     if(args['password'] != None):
