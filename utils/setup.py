@@ -103,7 +103,7 @@ while ssh_key_name_loop:
     user_input = raw_input('\nSelect an SSH key pair: ')
 
     try:
-        ssh_key_name = server_ssh_key_pairs[int(user_input)].name
+        ssh_key_name = str(server_ssh_key_pairs[int(user_input)].name)
     except (ValueError, IndexError):
         ssh_key_name = None
         print "Invalid input!"
@@ -114,9 +114,39 @@ while ssh_key_name_loop:
     if ssh_key_name_loop:
         print "EC2 key pair not found..."
 
-ssh_key_pair_file = '///'
-while not os.path.isfile(ssh_key_pair_file):
-    ssh_key_pair_file = raw_input('Enter the full path to the key pair file (extension .pem)? ')
+# List all of the .pem files in the vault directory and allow the user to choose which one to use or allow the user to
+# enter the path to a .pem file outside of the vault directory
+ssh_key_pair_file_loop = True
+while ssh_key_pair_file_loop:
+    print "\nWhich EC2 SSH key pair file (extension .pem) is associated with %s?" % ssh_key_name
+    print "\nSSH key pair files in the %s: " % vault
+
+    # display the ssh key pair file menu
+    i = 0
+    pem_files = glob(vault+'/*.pem')
+    for f in pem_files:
+        print "\t[%s] %s" % (i, f)
+        i += 1
+
+    if i is 0:
+        print "\tNo .pem files found in %s" % vault
+
+    user_input = raw_input("\nSelect a file from above or enter the full path to the .pem key file: ")
+
+    try:
+        int(user_input)
+        try:
+            ssh_key_pair_file = str(pem_files[int(user_input)])
+        except (ValueError, IndexError):
+            ssh_key_pair_file = None
+            print "Invalid input!"
+    except ValueError:
+        ssh_key_pair_file = user_input
+
+    if os.path.isfile(ssh_key_pair_file):
+        ssh_key_pair_file_loop = False
+    else:
+        print "\n%s is not a valid file!" % ssh_key_pair_file
 
 print 'ID: %s, key_id: %s, secret_key: %s' % (ID, key_id, secret_key)
 print 'ssh_key_name: %s, ssh_key_pair_file: %s' % (ssh_key_name, ssh_key_pair_file)
