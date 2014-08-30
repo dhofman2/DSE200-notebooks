@@ -10,6 +10,8 @@ import AWS_keypair_management
 import pickle
 from os.path import expanduser
 import boto.ec2
+import socket
+import time
 
 
 # If the EC2_VAULT environ var is set then use it, otherwise default to ~/Vault/
@@ -86,6 +88,7 @@ while security_group_loop:
 
     security_groups = [security_group]
 
+
 # List all of the EC2 key pair names defined on the server and allow the user to choose which one to use. Keep looping
 # until a valid selection is made
 ssh_key_name_loop = True
@@ -100,23 +103,39 @@ while ssh_key_name_loop:
         print "\t[%s] %s" % (i, k.name)
         i += 1
 
-    user_input = raw_input('\nSelect an SSH key pair: ')
+    user_input = raw_input('\nSelect an SSH key pair or type "create" to create a new SSH key pair: ')
 
-    try:
-        ssh_key_name = str(server_ssh_key_pairs[int(user_input)].name)
-    except (ValueError, IndexError):
-        ssh_key_name = None
-        print "Invalid input!"
+    # if the user enters add then try to create and save a new SSH key pair
+    if user_input == "create":
+        ssh_key_name = str(socket.gethostname()) + "_" + str(int(time.time()))
+        key = conn.create_key_pair(key_name=ssh_key_name)
+        key.save(vault)
+        ssh_key_pair_file = vault + "/" + ssh_key_name + ".pem"
 
-    for k in server_ssh_key_pairs:
+        if os.path.isfile(ssh_key_pair_file):
+            ssh_key_pair_file_loop = False
+            print "SSH key pair created..."
+    else:
+        try:
+            ssh_key_name = str(server_ssh_key_pairs[int(user_input)].name)
+        except (ValueError, IndexError):
+            ssh_key_name = None
+            print "Invalid input!"
+
+    for k in conn.get_all_key_pairs():
         if k.name == ssh_key_name:
             ssh_key_name_loop = False
     if ssh_key_name_loop:
         print "EC2 key pair not found..."
 
+
 # List all of the .pem files in the vault directory and allow the user to choose which one to use or allow the user to
 # enter the path to a .pem file outside of the vault directory
-ssh_key_pair_file_loop = True
+try:
+    ssh_key_pair_file_loop
+except NameError:
+    ssh_key_pair_file_loop = True
+
 while ssh_key_pair_file_loop:
     print "\nWhich EC2 SSH key pair file (extension .pem) is associated with %s?" % ssh_key_name
     print "\nSSH key pair files in the %s: " % vault
