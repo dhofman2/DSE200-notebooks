@@ -1,10 +1,17 @@
+#!/usr/bin/env python
 """ Insert credentials into mrjob configuration file """
-import sys, os, pickle
-                    
-if 'EC2_VAULT' in os.environ.keys():
-    vault=os.environ['EC2_VAULT']
-else:  # If EC2_VAULT is not defined, we assume we are in an EC2 instance
-    vault='/home/ubuntu/Vault'
+import sys
+import os
+import pickle
+from os.path import expanduser
+
+# If the EC2_VAULT environ var is set then use it, otherwise default to ~/Vault/
+try:
+    os.environ['EC2_VAULT']
+except KeyError:
+    vault = expanduser("~") + '/Vault'
+else:
+    vault = os.environ['EC2_VAULT']
 try:
     vaultname=vault+'/Creds.pkl'
     def check(key,Dict ):
