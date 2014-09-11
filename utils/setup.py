@@ -171,18 +171,37 @@ print 'ID: %s, key_id: %s, secret_key: %s' % (ID, key_id, secret_key)
 print 'ssh_key_name: %s, ssh_key_pair_file: %s' % (ssh_key_name, ssh_key_pair_file)
 print 'security groups: %s' % security_groups
 
-with open(vault+'/Creds.pkl', 'wb') as pickle_file:
+# Read the contents of vault/Creds.pkl if it exists
+try:
+    pickle_file = open(vault + '/Creds.pkl', 'rb')
+    credentials = pickle.load(pickle_file)
+    pickle_file.close()
+    print "Updating %s/Creds.pkl" % vault
+except (IOError, EOFError):
+    credentials = []
+    print "Creating a new %s/Creds.pkl" % vault
+
+# Write the new vault/Creds.pkl
+with open(vault + '/Creds.pkl', 'wb') as pickle_file:
+    # Add all the top level keys that are not launcher
+    for c in credentials:
+        if not c == "launcher":
+            pickle.dump({c: credentials[c]}, pickle_file)
+
+    # Add the new launcher credentials
     if security_group is None:
-        pickle.dump({'ID': ID,
-                     'key_id': key_id,
-                     'secret_key': secret_key,
-                     'ssh_key_name': ssh_key_name,
-                     'ssh_key_pair_file': ssh_key_pair_file}, pickle_file)
+        pickle.dump({'launcher': {'ID': ID,
+                                  'key_id': key_id,
+                                  'secret_key': secret_key,
+                                  'ssh_key_name': ssh_key_name,
+                                  'ssh_key_pair_file': ssh_key_pair_file}}, pickle_file)
     else:
-        pickle.dump({'ID': ID,
-                     'key_id': key_id,
-                     'secret_key': secret_key,
-                     'ssh_key_name': ssh_key_name,
-                     'ssh_key_pair_file': ssh_key_pair_file,
-                     'security_groups': security_groups}, pickle_file)
+        pickle.dump({'launcher': {'ID': ID,
+                                  'key_id': key_id,
+                                  'secret_key': secret_key,
+                                  'ssh_key_name': ssh_key_name,
+                                  'ssh_key_pair_file': ssh_key_pair_file,
+                                  'security_groups': security_groups}}, pickle_file)
+
+    pickle_file.close()
 conn.close()

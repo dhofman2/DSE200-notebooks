@@ -48,8 +48,8 @@ import json
 from urllib2 import urlopen
 
 # AMI name: ERM_Utils These two lines last updated 8/27/2014
-ami_owner_id = '400268158021'
-ami_name = 'ERM_Utils'
+ami_owner_id = '846273844940'
+ami_name = 'MASDSE'
 
 # Read Credentials
 #
@@ -64,7 +64,8 @@ else:
 # Read credentials from vault/Creds.pkl
 try:
     credentials_file = open(vault + '/Creds.pkl')
-    credentials = pickle.load(credentials_file)
+    p = pickle.load(credentials_file)
+    credentials = p['launcher']
 except Exception, e:
     print e
     sys.exit('Could not read Creds.pkl')
