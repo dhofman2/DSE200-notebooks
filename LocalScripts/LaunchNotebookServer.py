@@ -284,17 +284,50 @@ if __name__ == "__main__":
             # Open http://httpbin.org/ip to get the public ip address
             ip_address = json.load(urlopen('http://httpbin.org/ip'))['origin']
 
-            security_group_name = "Allow all from " + str(ip_address)
+            security_group_name = user_name
 
             # Check for the security group and create it if missing
             security_groups = [security_group_name]
             security_group_found = False
 
-            for g in conn.get_all_security_groups():
-                if g.name == security_group_name:
+            for sg in conn.get_all_security_groups():
+                if sg.name == security_group_name:
                     print "Security group found..."
                     security_group_found = True
 
+                    tcp_rule = False
+                    udp_rule = False
+                    icmp_rule = False
+
+                    # Verify the security group has the current ip address in it
+                    for rule in sg.rules:
+                        if (str(rule.ip_protocol) == "tcp" and str(rule.from_port) == "0" and
+                                str(rule.to_port) == "65535" and str(ip_address) + "/32" in str(rule.grants)):
+                            print "Found TCP Rule"
+                            tcp_rule = True
+
+                        if (str(rule.ip_protocol) == "udp" and str(rule.from_port) == "0" and
+                                str(rule.to_port) == "65535" and str(ip_address) + "/32" in str(rule.grants)):
+                            print "Found UDP Rule"
+                            udp_rule = True
+
+                        if (str(rule.ip_protocol) == "icmp" and str(rule.from_port) == "-1" and
+                                str(rule.to_port) == "-1" and str(ip_address) + "/32" in str(rule.grants)):
+                            print "Found ICMP Rule"
+                            icmp_rule = True
+
+                    # If the current ip address is missing from the security group then add it
+                    if tcp_rule is False:
+                        print "Adding " + str(ip_address) + " (TCP) to " + security_group_name + " security group"
+                        sg.authorize('tcp', 0, 65535, str(ip_address) + "/32")  # Allow all TCP
+                    if udp_rule is False:
+                        print "Adding " + str(ip_address) + " (UDP) to " + security_group_name + " security group"
+                        sg.authorize('udp', 0, 65535, str(ip_address) + "/32")  # Allow all UDP
+                    if icmp_rule is False:
+                        print "Adding " + str(ip_address) + " (ICMP) to " + security_group_name + " security group"
+                        sg.authorize('icmp', -1, -1, str(ip_address) + "/32")   # Allow all ICMP
+
+            # If a security group does not exist for the user then create it
             if security_group_found is False:
                 print "Creating security group..."
                 security_group_description = "MAS DSE created on " + str(time.strftime("%d/%m/%Y"))
