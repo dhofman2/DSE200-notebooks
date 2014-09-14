@@ -53,38 +53,6 @@ conn = boto.ec2.connect_to_region("us-east-1",
                                   aws_access_key_id=key_id,
                                   aws_secret_access_key=secret_key)
 
-# Ask for an EC2 security group or allow LaunchNotebookServer.py to create a new security group based on the current
-# ip address. If an EC2 security group is entered, then verify it exists in EC2 before proceeding.
-security_group_loop = True
-while security_group_loop:
-    server_security_groups = conn.get_all_security_groups()
-
-    # display the security group menu
-    server_security_groups.insert(0, "Generate New Security Group")
-    title = "Which EC2 security group would you like to use for instances? "
-    top_instructions = "Use the arrow keys make your selection and press return to continue"
-    bottom_instructions = "Enter nothing ..."
-    user_input = curses_menu.curses_menu(server_security_groups, title=title, top_instructions=top_instructions,
-                                         bottom_instructions=bottom_instructions)
-
-    if str(user_input) is "0":
-        security_group = None
-        security_group_loop = False
-    else:
-        try:
-            security_group = str(server_security_groups[int(user_input)].name)
-        except (ValueError, IndexError):
-            security_group = None
-            print "Invalid input!"
-
-        for g in conn.get_all_security_groups():
-            if g.name == security_group:
-                security_group_loop = False
-        if security_group_loop:
-            print "Security group not found..."
-
-    security_groups = [security_group]
-
 
 # List all of the EC2 key pair names defined on the server and allow the user to choose which one to use. Keep looping
 # until a valid selection is made
@@ -161,7 +129,7 @@ while ssh_key_pair_file_loop:
 
 print 'ID: %s, key_id: %s, secret_key: %s' % (ID, key_id, secret_key)
 print 'ssh_key_name: %s, ssh_key_pair_file: %s' % (ssh_key_name, ssh_key_pair_file)
-print 'security groups: %s' % security_groups
+
 
 # Read the contents of vault/Creds.pkl if it exists
 try:
@@ -181,19 +149,11 @@ with open(vault + '/Creds.pkl', 'wb') as pickle_file:
             pickle.dump({c: credentials[c]}, pickle_file)
 
     # Add the new launcher credentials
-    if security_group is None:
-        pickle.dump({'launcher': {'ID': ID,
-                                  'key_id': key_id,
-                                  'secret_key': secret_key,
-                                  'ssh_key_name': ssh_key_name,
-                                  'ssh_key_pair_file': ssh_key_pair_file}}, pickle_file)
-    else:
-        pickle.dump({'launcher': {'ID': ID,
-                                  'key_id': key_id,
-                                  'secret_key': secret_key,
-                                  'ssh_key_name': ssh_key_name,
-                                  'ssh_key_pair_file': ssh_key_pair_file,
-                                  'security_groups': security_groups}}, pickle_file)
+    pickle.dump({'launcher': {'ID': ID,
+                              'key_id': key_id,
+                              'secret_key': secret_key,
+                              'ssh_key_name': ssh_key_name,
+                              'ssh_key_pair_file': ssh_key_pair_file}}, pickle_file)
 
     pickle_file.close()
 conn.close()
