@@ -102,7 +102,7 @@ while ssh_key_name_loop:
 
     # if the user enters add then try to create and save a new SSH key pair
     if str(user_input) == "0":
-        ssh_key_name = str(socket.gethostname()) + "_" + str(int(time.time()))
+        ssh_key_name = str(ID) + "_" + str(socket.gethostname()) + "_" + str(int(time.time()))
         key = conn.create_key_pair(key_name=ssh_key_name)
         key.save(vault)
         ssh_key_pair_file = vault + "/" + ssh_key_name + ".pem"
