@@ -28,22 +28,22 @@ else:
     sys.exit("Vault directory not found.")
 
 AWS_KM = AWS_keypair_management.AWS_keypair_management()
-(Creds, bad_files) = AWS_KM.Get_Working_Credentials(vault)
+(credentials, bad_files) = AWS_KM.Get_Working_Credentials(vault)
 
-# If there is more than one AWS keypair then display them using a menu, otherwise just select the one
-if len(Creds) > 1:
-    title = "Which AWS credentials do you want to use?"
+# If there is more than one AWS key pair then display them using a menu, otherwise just select the one
+if len(credentials) > 1:
+    title = "Which AWS credentials do you want to use? Below is the list of user names."
     top_instructions = "Use the arrow keys make your selection and press return to continue"
     bottom_instructions = ""
-    user_input = curses_menu.curses_menu(Creds, title=title, top_instructions=top_instructions,
+    user_input = curses_menu.curses_menu(credentials, title=title, top_instructions=top_instructions,
                                          bottom_instructions=bottom_instructions)
-    ID = Creds.keys()[int(user_input)]
-elif len(Creds) == 1:
-    ID = Creds.keys()[0]
+    ID = credentials.keys()[int(user_input)]
+elif len(credentials) == 1:
+    ID = credentials.keys()[0]
 else:
-    sys.exit("No AWS keypair found.")
+    sys.exit("No AWS credentials found.")
 
-entry = Creds[ID]
+entry = credentials[ID]
 
 key_id = entry['Creds'][0]['Access_Key_Id']
 secret_key = entry['Creds'][0]['Secret_Access_Key']
@@ -53,79 +53,34 @@ conn = boto.ec2.connect_to_region("us-east-1",
                                   aws_access_key_id=key_id,
                                   aws_secret_access_key=secret_key)
 
+# Generate or specify the SSH key pair
+need_ssh_key_pair = True
+pem_files = glob(vault+'/*.pem')
 
-# List all of the EC2 key pair names defined on the server and allow the user to choose which one to use. Keep looping
-# until a valid selection is made
-ssh_key_name_loop = True
-while ssh_key_name_loop:
-    server_ssh_key_pairs = conn.get_all_key_pairs()
-
-    # display the EC2 SSH key pair menu
-    server_ssh_key_pairs.insert(0, "Generate New SSH Key Pair")
-    title = "Which EC2 SSH key pair would you like to use to login to your instances? "
-    top_instructions = "Use the arrow keys make your selection and press return to continue"
-    bottom_instructions = ""
-    user_input = curses_menu.curses_menu(server_ssh_key_pairs, title=title, top_instructions=top_instructions,
-                                         bottom_instructions=bottom_instructions)
-
-    # if the user enters add then try to create and save a new SSH key pair
-    if str(user_input) == "0":
-        ssh_key_name = str(ID) + "_" + str(socket.gethostname()) + "_" + str(int(time.time()))
-        key = conn.create_key_pair(key_name=ssh_key_name)
-        key.save(vault)
-        ssh_key_pair_file = vault + "/" + ssh_key_name + ".pem"
-
-        if os.path.isfile(ssh_key_pair_file):
-            ssh_key_pair_file_loop = False
-            print "SSH key pair created..."
-    else:
-        try:
-            ssh_key_name = str(server_ssh_key_pairs[int(user_input)].name)
-        except (ValueError, IndexError):
-            ssh_key_name = None
-            print "Invalid input!"
-
-    for k in conn.get_all_key_pairs():
-        if k.name == ssh_key_name:
-            ssh_key_name_loop = False
-    if ssh_key_name_loop:
-        print "EC2 key pair not found..."
-
-
-# List all of the .pem files in the vault directory and allow the user to choose which one to use or allow the user to
-# enter the path to a .pem file outside of the vault directory
-try:
-    ssh_key_pair_file_loop
-except NameError:
-    ssh_key_pair_file_loop = True
-
-while ssh_key_pair_file_loop:
-    pem_files = glob(vault+'/*.pem')
-
+while need_ssh_key_pair:
+    # If no pem_files exist in the vault then create one
     if len(pem_files) is 0:
-        print "\tNo .pem files found in %s" % vault
+            ssh_key_name = str(ID) + "_" + str(socket.gethostname()) + "_" + str(int(time.time()))
+            key = conn.create_key_pair(key_name=ssh_key_name)
+            key.save(vault)
+            ssh_key_pair_file = vault + "/" + ssh_key_name + ".pem"
 
-    # display the ssh key pair file menu
-    title = "Which EC2 SSH key pair file (extension .pem) is associated with %s?" % ssh_key_name
-    top_instructions = "Use the arrow keys make your selection and press return to continue"
-    bottom_instructions = ""
-    user_input = curses_menu.curses_menu(pem_files, title=title, top_instructions=top_instructions,
-                                         bottom_instructions=bottom_instructions)
-
-    try:
-        int(user_input)
-        try:
-            ssh_key_pair_file = str(pem_files[int(user_input)])
-        except (ValueError, IndexError):
-            ssh_key_pair_file = None
-            print "Invalid input!"
-    except ValueError:
-        ssh_key_pair_file = user_input
-
-    if os.path.isfile(ssh_key_pair_file):
-        ssh_key_pair_file_loop = False
+            if os.path.isfile(ssh_key_pair_file):
+                print "SSH key pair created..."
+                need_ssh_key_pair = False
+    # If pem_files exist in the vault the select the first one that matches the name of a ssh key pair on AWS
     else:
-        print "\n%s is not a valid file!" % ssh_key_pair_file
+        aws_key_pairs = conn.get_all_key_pairs()
+
+        for pem_file in pem_files:
+            ssh_key_name = os.path.splitext(os.path.basename(str(pem_file)))[0]
+            ssh_key_pair_file = pem_file
+
+            # Verify the ssh_key_name matches a ssh_key on AWS
+            if any(ssh_key_name in k.name for k in aws_key_pairs):
+                print "Found matching SSH key pair..."
+                need_ssh_key_pair = False
+                break
 
 print 'ID: %s, key_id: %s, secret_key: %s' % (ID, key_id, secret_key)
 print 'ssh_key_name: %s, ssh_key_pair_file: %s' % (ssh_key_name, ssh_key_pair_file)
@@ -134,19 +89,19 @@ print 'ssh_key_name: %s, ssh_key_pair_file: %s' % (ssh_key_name, ssh_key_pair_fi
 # Read the contents of vault/Creds.pkl if it exists
 try:
     pickle_file = open(vault + '/Creds.pkl', 'rb')
-    credentials = pickle.load(pickle_file)
+    saved_credentials = pickle.load(pickle_file)
     pickle_file.close()
     print "Updating %s/Creds.pkl" % vault
 except (IOError, EOFError):
-    credentials = []
+    saved_credentials = []
     print "Creating a new %s/Creds.pkl" % vault
 
 # Write the new vault/Creds.pkl
 with open(vault + '/Creds.pkl', 'wb') as pickle_file:
     # Add all the top level keys that are not launcher
-    for c in credentials:
+    for c in saved_credentials:
         if not c == "launcher":
-            pickle.dump({c: credentials[c]}, pickle_file)
+            pickle.dump({c: saved_credentials[c]}, pickle_file)
 
     # Add the new launcher credentials
     pickle.dump({'launcher': {'ID': ID,
