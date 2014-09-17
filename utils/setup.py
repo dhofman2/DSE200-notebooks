@@ -14,7 +14,7 @@ import time
 import curses_menu
 import logging
 import argparse
-
+import shutil
 
 def collect_credentials():
     # Log the csv files found in the vault directory
@@ -119,6 +119,15 @@ def collect_credentials():
         logging.info("Undefined variable: user_id: %s, key_id: %s ssh_key_name: %s, ssh_key_pair_file: %s" %
                      (user_id, key_id, ssh_key_name, ssh_key_pair_file))
         sys.exit("Undefined variable")
+
+    # Make a copy of vault/Creds.pkl before making any changes
+    old_credentials = vault + "/Creds_%s.pkl" % str(int(time.time()))
+    try:
+        shutil.copyfile(vault + "/Creds.pkl", old_credentials)
+        logging.info("Copied %s/Creds.pkl to %s" % (vault, old_credentials))
+    except (IOError, EOFError):
+        logging.info("Error copying %s/Creds.pkl to %s" % (vault, old_credentials))
+        sys.exit("Error copying %s/Creds.pkl to %s" % (vault, old_credentials))
 
     # Read the contents of vault/Creds.pkl if it exists
     try:
