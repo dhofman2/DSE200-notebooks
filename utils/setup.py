@@ -16,6 +16,7 @@ import logging
 import argparse
 import shutil
 
+
 def collect_credentials():
     # Log the csv files found in the vault directory
     for csv in glob(vault+'/*.csv'):
@@ -120,47 +121,55 @@ def collect_credentials():
                      (user_id, key_id, ssh_key_name, ssh_key_pair_file))
         sys.exit("Undefined variable")
 
-    # Make a copy of vault/Creds.pkl before making any changes
-    old_credentials = vault + "/Creds_%s.pkl" % str(int(time.time()))
-    try:
-        shutil.copyfile(vault + "/Creds.pkl", old_credentials)
-        logging.info("Copied %s/Creds.pkl to %s" % (vault, old_credentials))
-    except (IOError, EOFError):
-        logging.info("Error copying %s/Creds.pkl to %s" % (vault, old_credentials))
-        sys.exit("Error copying %s/Creds.pkl to %s" % (vault, old_credentials))
+    new_credentials = {}
+    # If a Creds.pkl file already exists, make a copy, read the non 'launcher' credentials
+    if os.path.isfile(vault + "/Creds.pkl"):
+        logging.info("Found existing %s/Creds.pkl" % vault)
+        # Make a copy of vault/Creds.pkl before making any changes
+        old_credentials = vault + "/Creds_%s.pkl" % str(int(time.time()))
+        try:
+            shutil.copyfile(vault + "/Creds.pkl", old_credentials)
+            logging.info("Copied %s/Creds.pkl to %s" % (vault, old_credentials))
+        except (IOError, EOFError):
+            logging.info("Error copying %s/Creds.pkl to %s" % (vault, old_credentials))
+            sys.exit("Error copying %s/Creds.pkl to %s" % (vault, old_credentials))
 
-    # Read the contents of vault/Creds.pkl if it exists
-    try:
-        pickle_file = open(vault + '/Creds.pkl', 'rb')
-        saved_credentials = pickle.load(pickle_file)
-        pickle_file.close()
-        logging.info("Updating %s/Creds.pkl" % vault)
-        print "Updating %s/Creds.pkl" % vault
-    except (IOError, EOFError):
-        saved_credentials = []
-        logging.info("Creating a new %s/Creds.pkl" % vault)
-        print "Creating a new %s/Creds.pkl" % vault
+        # Read the contents of vault/Creds.pkl
+        try:
+            pickle_file = open(vault + '/Creds.pkl', 'rb')
+            saved_credentials = pickle.load(pickle_file)
+            pickle_file.close()
+            logging.info("Reading %s/Creds.pkl" % vault)
+            print "Updating %s/Creds.pkl" % vault
+        except (IOError, EOFError):
+            saved_credentials = {}
+            logging.info("Error reading %s/Creds.pkl" % vault)
+            print "Error reading %s/Creds.pkl" % vault
 
-    # Write the new vault/Creds.pkl
-    with open(vault + '/Creds.pkl', 'wb') as pickle_file:
         # Add all the top level keys that are not launcher
         for c in saved_credentials:
             logging.info("Found top level key in Creds.pkl: %s" % c)
             if not c == "launcher":
                 logging.info("Saving %s to Creds.pkl unchanged" % c)
-                pickle.dump({c: saved_credentials[c]}, pickle_file)
+                new_credentials.update({c: saved_credentials[c]})
+    else:
+        logging.info("Creating a new %s/Creds.pkl" % vault)
+        print "Creating a new %s/Creds.pkl" % vault
 
-        logging.info("Adding ID: %s, key_id: %s, ssh_key_name: %s, ssh_key_pair_file: %s to Creds.pkl" %
-                     (user_id, key_id, ssh_key_name, ssh_key_pair_file))
-        # Add the new launcher credentials
-        pickle.dump({'launcher': {'ID': user_id,
-                                  'key_id': key_id,
-                                  'secret_key': secret_key,
-                                  'ssh_key_name': ssh_key_name,
-                                  'ssh_key_pair_file': ssh_key_pair_file}}, pickle_file)
+    # Add the new launcher credentials
+    logging.info("Adding ID: %s, key_id: %s, ssh_key_name: %s, ssh_key_pair_file: %s to Creds.pkl" %
+                 (user_id, key_id, ssh_key_name, ssh_key_pair_file))
+    new_credentials.update({'launcher': {'ID': user_id,
+                            'key_id': key_id,
+                            'secret_key': secret_key,
+                            'ssh_key_name': ssh_key_name,
+                            'ssh_key_pair_file': ssh_key_pair_file}})
 
-        pickle_file.close()
-        logging.info("Saved %s/Creds.pkl" % vault)
+    # Write the new vault/Creds.pkl
+    pickle_file = open(vault + '/Creds.pkl', 'wb')
+    pickle.dump(new_credentials, pickle_file)
+    pickle_file.close()
+    logging.info("Saved %s/Creds.pkl" % vault)
     conn.close()
 
 
