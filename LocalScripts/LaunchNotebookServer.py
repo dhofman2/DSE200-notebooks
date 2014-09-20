@@ -83,8 +83,6 @@ for c in credentials:
         key_pair_file = credentials['ssh_key_pair_file']    # name of local file storing keypair
     elif c == "ssh_key_name":
         key_name = credentials['ssh_key_name']              # name of keypair on AWS
-    elif c == "security_groups":
-        security_groups = credentials['security_groups']    # security groups for controlling access
 
 # These credentials are required to be set before proceeding
 try:
@@ -276,65 +274,68 @@ if __name__ == "__main__":
 
         print 'launching an ec2 instance, instance type=', instance_type, ', ami=', ami_name, ', disk size=', disk_size
 
-        # Use the security group in Creds.pkl, otherwise use a security group based on the current ip address
-        try:
-            security_groups
-            print "Using security group from Creds.pkl"
-        except NameError:
-            # Open http://httpbin.org/ip to get the public ip address
-            ip_address = json.load(urlopen('http://httpbin.org/ip'))['origin']
+        #
+        # Use a security named the same as user_name. Create the security group if it does not exist.
+        # Make sure the current IP address is added to the security group if it is missing.
+        #
 
-            security_group_name = user_name
+        # TODO: Make sure the current IP address is added to the security group every time the script is ran instead of
+        # only when the instance is started.
 
-            # Check for the security group and create it if missing
-            security_groups = [security_group_name]
-            security_group_found = False
+        # Open http://httpbin.org/ip to get the public ip address
+        ip_address = json.load(urlopen('http://httpbin.org/ip'))['origin']
 
-            for sg in conn.get_all_security_groups():
-                if sg.name == security_group_name:
-                    print "Security group found..."
-                    security_group_found = True
+        security_group_name = user_name
 
-                    tcp_rule = False
-                    udp_rule = False
-                    icmp_rule = False
+        # Check for the security group and create it if missing
+        security_groups = [security_group_name]
+        security_group_found = False
 
-                    # Verify the security group has the current ip address in it
-                    for rule in sg.rules:
-                        if (str(rule.ip_protocol) == "tcp" and str(rule.from_port) == "0" and
-                                str(rule.to_port) == "65535" and str(ip_address) + "/32" in str(rule.grants)):
-                            print "Found TCP Rule"
-                            tcp_rule = True
+        for sg in conn.get_all_security_groups():
+            if sg.name == security_group_name:
+                print "Security group found..."
+                security_group_found = True
 
-                        if (str(rule.ip_protocol) == "udp" and str(rule.from_port) == "0" and
-                                str(rule.to_port) == "65535" and str(ip_address) + "/32" in str(rule.grants)):
-                            print "Found UDP Rule"
-                            udp_rule = True
+                tcp_rule = False
+                udp_rule = False
+                icmp_rule = False
 
-                        if (str(rule.ip_protocol) == "icmp" and str(rule.from_port) == "-1" and
-                                str(rule.to_port) == "-1" and str(ip_address) + "/32" in str(rule.grants)):
-                            print "Found ICMP Rule"
-                            icmp_rule = True
+                # Verify the security group has the current ip address in it
+                for rule in sg.rules:
+                    if (str(rule.ip_protocol) == "tcp" and str(rule.from_port) == "0" and
+                            str(rule.to_port) == "65535" and str(ip_address) + "/32" in str(rule.grants)):
+                        print "Found TCP Rule"
+                        tcp_rule = True
 
-                    # If the current ip address is missing from the security group then add it
-                    if tcp_rule is False:
-                        print "Adding " + str(ip_address) + " (TCP) to " + security_group_name + " security group"
-                        sg.authorize('tcp', 0, 65535, str(ip_address) + "/32")  # Allow all TCP
-                    if udp_rule is False:
-                        print "Adding " + str(ip_address) + " (UDP) to " + security_group_name + " security group"
-                        sg.authorize('udp', 0, 65535, str(ip_address) + "/32")  # Allow all UDP
-                    if icmp_rule is False:
-                        print "Adding " + str(ip_address) + " (ICMP) to " + security_group_name + " security group"
-                        sg.authorize('icmp', -1, -1, str(ip_address) + "/32")   # Allow all ICMP
+                    if (str(rule.ip_protocol) == "udp" and str(rule.from_port) == "0" and
+                            str(rule.to_port) == "65535" and str(ip_address) + "/32" in str(rule.grants)):
+                        print "Found UDP Rule"
+                        udp_rule = True
 
-            # If a security group does not exist for the user then create it
-            if security_group_found is False:
-                print "Creating security group..."
-                security_group_description = "MAS DSE created on " + str(time.strftime("%d/%m/%Y"))
-                sg = conn.create_security_group(security_group_name, security_group_description)
-                sg.authorize('tcp', 0, 65535, str(ip_address) + "/32")  # Allow all TCP
-                sg.authorize('udp', 0, 65535, str(ip_address) + "/32")  # Allow all UDP
-                sg.authorize('icmp', -1, -1, str(ip_address) + "/32")   # Allow all ICMP
+                    if (str(rule.ip_protocol) == "icmp" and str(rule.from_port) == "-1" and
+                            str(rule.to_port) == "-1" and str(ip_address) + "/32" in str(rule.grants)):
+                        print "Found ICMP Rule"
+                        icmp_rule = True
+
+                # If the current ip address is missing from the security group then add it
+                if tcp_rule is False:
+                    print "Adding " + str(ip_address) + " (TCP) to " + security_group_name + " security group"
+                    sg.authorize('tcp', 0, 65535, str(ip_address) + "/32")  # Allow all TCP
+                if udp_rule is False:
+                    print "Adding " + str(ip_address) + " (UDP) to " + security_group_name + " security group"
+                    sg.authorize('udp', 0, 65535, str(ip_address) + "/32")  # Allow all UDP
+                if icmp_rule is False:
+                    print "Adding " + str(ip_address) + " (ICMP) to " + security_group_name + " security group"
+                    sg.authorize('icmp', -1, -1, str(ip_address) + "/32")   # Allow all ICMP
+
+        # If a security group does not exist for the user then create it
+        if security_group_found is False:
+            print "Creating security group..."
+            security_group_description = "MAS DSE created on " + str(time.strftime("%m/%d/%Y"))
+            sg = conn.create_security_group(security_group_name, security_group_description)
+            sg.authorize('tcp', 0, 65535, str(ip_address) + "/32")  # Allow all TCP
+            sg.authorize('udp', 0, 65535, str(ip_address) + "/32")  # Allow all UDP
+            sg.authorize('icmp', -1, -1, str(ip_address) + "/32")   # Allow all ICMP
 
         bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping()
         if disk_size>0:
