@@ -257,10 +257,10 @@ if __name__ == "__main__":
 
     # If there is no instance that is pending or running, create one
     if instance is None:
-        instance_type=args['instance_type']
-        disk_size=args['disk_size']
+        instance_type = args['instance_type']
+        disk_size = args['disk_size']
 
-        print 'launching an ec2 instance, instance type=', instance_type, ', ami=', ami_name, ', disk size=', disk_size
+        print "Launching an EC2 instance: type=%s, ami=%s, disk_size=%s" % (instance_type, ami_name, disk_size)
 
         #
         # Use a security named the same as user_name. Create the security group if it does not exist.
@@ -326,9 +326,9 @@ if __name__ == "__main__":
             sg.authorize('icmp', -1, -1, str(ip_address) + "/32")   # Allow all ICMP
 
         bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping()
-        if disk_size>0:
+        if disk_size > 0:
             dev_sda1 = boto.ec2.blockdevicemapping.EBSBlockDeviceType()
-            dev_sda1.size = disk_size # size in Gigabytes
+            dev_sda1.size = disk_size   # size in Gigabytes
             bdm['/dev/sda1'] = dev_sda1
 
         images = conn.get_all_images(filters={'owner-id': ami_owner_id, 'name': ami_name})
@@ -343,7 +343,7 @@ if __name__ == "__main__":
             print "Error finding AMI Image"
             sys.exit("Error finding AMI Image")
 
-        print 'Launched Instance',reservation
+        print 'Launched Instance: %s' % reservation
 
         # Tag the instances with the user_name
         for i in reservation.instances:
@@ -371,20 +371,20 @@ if __name__ == "__main__":
     ssh = ['ssh', '-i', key_pair_file, ('%s@%s' % (login_id, instance.public_dns_name))]
     print "\nTo connect to instance, use:\n%s" % ' '.join(ssh)
 
-    if(args['password'] != None):
+    if args['password'] is None:
         set_password(args['password'])
 
-    if(args['kill']):
-        print "closing all notebook servers"
+    if args['kill']:
+        print "Closing all notebook servers"
         kill_all_notebooks()
         sys.exit()
 
-    if(args['collection'] != None):
+    if args['collection'] is None:
         Launch_notebook(args['collection'])
 
-    if(args['create_image'] != None):
-        print "creating a new AMI called",args['create_image']
+    if args['create_image'] is None:
+        print "creating a new AMI called %s" % args['create_image']
         create_image(args['create_image'])
 
-    if(args['Copy_Credentials']!= None):
+    if args['Copy_Credentials'] is None:
        copy_credentials(args['Copy_Credentials'])
