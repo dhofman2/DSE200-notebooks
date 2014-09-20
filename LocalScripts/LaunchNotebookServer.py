@@ -222,36 +222,30 @@ if __name__ == "__main__":
 
     # parse parameters
     parser = argparse.ArgumentParser(description='launch an ec2 instance and then start an ipython notebook server')
-    parser.add_argument('-c','--collection',
+    parser.add_argument('-c', '--collection',
                         help="""Choice of notebook collection, there are two options:
                         1) '@path' an explicit path to the wanted directory, relative to /home/ubuntu\n\n
                         2) 'name' the name of a collection listed in the markdown file:\n\n
-                              https://github.com/yoavfreund/UCSD_BigData/blob/master/AWS_scripts/NotebookCollections.md\n\n
-                           the name of the collection is given in a pattern of the form __[name]__
+                              https://github.com/yoavfreund/UCSD_BigData/blob/master/AWS_scripts/NotebookCollections.md
+                           \n\nthe name of the collection is given in a pattern of the form __[name]__
                         """)
-    parser.add_argument('-i','--create_image',
+    parser.add_argument('-i', '--create_image',
                         help='Create an AMI from the current state of the (first) instance')
-    parser.add_argument('-p','--password',
+    parser.add_argument('-p', '--password',
                         help='Specify password for notebook (if missing=use existing password)')
-    parser.add_argument('-t','--instance_type',default='t1.micro',
-                        help='Type of instance to launch, Common choices are t1.micro,c1.medium,m3.xlarge, for more info see: https://aws.amazon.com//ec2/instance-types/')
-#Some common choices:
-#              vCPU     ECU	Memory (GiB)	Instance Storage (GB)	Linux/UNIX Usage
-#----------------------------------------------------------------------------------------
-#t1.micro	1	Variable    0.615	 EBS Only	        $0.020 per Hour
-#c1.medium	2	5	    1.7	         1 x 350	        $0.145 per Hour
-#m3.xlarge	4	13	    15	         2 x 40 SSD	        $0.450 per Hour
-#----------------------------------------------------------------------------------------
-    parser.add_argument('-k','--kill_all',dest='kill',action='store_true',default=False,
+    parser.add_argument('-t', '--instance_type', default='t1.micro',
+                        help='Type of instance to launch, Common choices are t1.micro, c1.medium, m3.xlarge for more' +
+                             'info see: https://aws.amazon.com//ec2/instance-types/')
+    parser.add_argument('-k', '--kill_all', dest='kill', action='store_true', default=False,
                         help='close all running notebook servers')
-    parser.add_argument('-d','--disk_size', default=0, type=int,
+    parser.add_argument('-d', '--disk_size', default=0, type=int,
                         help='Amount of additional disk space in GB (default 0)')
-    parser.add_argument('-A','--Copy_Credentials',
-                        help='Copy the credentials files to the Vault directory on the AWS instance. Parameter is a the full path of the files you want to transfer to the vault. Wildcards are allowed but have to be preceded by a "\")')
+    parser.add_argument('-A', '--Copy_Credentials',
+                        help='Copy the credentials files to the Vault directory on the AWS instance. ' +
+                             'Parameter is a the full path of the files you want to transfer to the vault. ' +
+                             'Wildcards are allowed but have to be preceded by a "\")')
 
     args = vars(parser.parse_args())
-
-    # print 'args=',args
 
     # open connection to aws
     print 'The regions you are connected to are:',boto.ec2.regions()
