@@ -38,10 +38,14 @@ Here are the steps you need to follow to achieve this
 
 # ### Definitions of procedures ###
 import boto.ec2
-import time, pickle
+import time
+import pickle
 import subprocess
-import sys,os,re,webbrowser,select
-from string import rstrip
+import sys
+import os
+import re
+import webbrowser
+import select
 import argparse
 from os.path import expanduser
 import json
@@ -66,8 +70,9 @@ def read_credentials():
 
     # Read credentials from vault/Creds.pkl
     try:
-        credentials_file = open(vault + '/Creds.pkl')
-        p = pickle.load(credentials_file)
+        p_credentials_path = vault + '/Creds.pkl'
+        p_credentials_file = open(p_credentials_path)
+        p = pickle.load(p_credentials_file)
         credentials = p['launcher']
     except Exception, e:
         print e
@@ -75,28 +80,29 @@ def read_credentials():
 
     for c in credentials:
         if c == "key_id":
-            plk_aws_access_key_id = credentials['key_id']
+            p_aws_access_key_id = credentials['key_id']
         elif c == "secret_key":
-            plk_aws_secret_access_key = credentials['secret_key']
+            p_aws_secret_access_key = credentials['secret_key']
         elif c == "ID":
-            plk_user_name = credentials['ID']
+            p_user_name = credentials['ID']
         elif c == "ssh_key_pair_file":
-            plk_key_pair_file = credentials['ssh_key_pair_file']    # name of local file storing keypair
+            p_key_pair_file = credentials['ssh_key_pair_file']    # name of local file storing keypair
         elif c == "ssh_key_name":
-            plk_key_name = credentials['ssh_key_name']              # name of keypair on AWS
+            p_key_name = credentials['ssh_key_name']              # name of keypair on AWS
 
     # These credentials are required to be set before proceeding
     try:
-        plk_aws_access_key_id
-        plk_aws_secret_access_key
-        plk_user_name
-        plk_key_pair_file
-        plk_key_name
+        p_credentials_path
+        p_aws_access_key_id
+        p_aws_secret_access_key
+        p_user_name
+        p_key_pair_file
+        p_key_name
     except NameError, e:
         print e
         sys.exit("Not all of the credentials were defined")
 
-    return plk_aws_access_key_id, plk_aws_secret_access_key, plk_user_name, plk_key_pair_file, plk_key_name
+    return p_credentials_path, p_aws_access_key_id, p_aws_secret_access_key, p_user_name, p_key_pair_file, p_key_name
 
 
 # Find all instances that are tagged as owned by user_name and the source is LaunchNotebookServer.py
@@ -126,38 +132,46 @@ def report_all_instances():
 
     return return_instance
 
-def emptyCallBack(line): return False
+
+def empty_call_back(line):
+    return False
+
 
 def kill_all_notebooks():
-    command=['scripts/CloseAllNotebooks.py']
-    Send_Command(command,emptyCallBack)
+    command = ['scripts/CloseAllNotebooks.py']
+    send_command(command, empty_call_back)
+
 
 def set_credentials():
     """ set ID and secret key as environment variables on the remote machine"""
 
-def copy_credentials(LocalDir):
+
+def copy_credentials(local_dir):
     from glob import glob
-    print 'Entered copy_credentials:',LocalDir
-    mkdir=['mkdir','Vault']
-    Send_Command(mkdir,emptyCallBack,dont_wait=True)
-    list=glob(args['Copy_Credentials'])
-    scp=['scp','-i',key_pair_file]+list+[('%s@%s:Vault/' % (login_id,instance.public_dns_name))]
+    print 'Entered copy_credentials:', local_dir
+    mkdir = ['mkdir', 'Vault']
+    send_command(mkdir, empty_call_back, dont_wait=True)
+    local_dir_list = glob(local_dir)
+    scp = ['scp', '-i', key_pair_file]+local_dir_list+[('%s@%s:Vault/' % (login_id, instance.public_dns_name))]
     print ' '.join(scp)
     subprocess.call(scp)
 
+
 def set_password(password):
-    if len(password)<6:
+    if len(password) < 6:
         sys.exit('Password must be at least 6 characters long')
-    command=["scripts/SetNotebookPassword.py",password]
-    Send_Command(command,emptyCallBack)
+    command = ["scripts/SetNotebookPassword.py", password]
+    send_command(command, empty_call_back)
+
 
 def create_image(image_name):
     #delete the Vault directory, where all of the secret keys and passwords reside.
-    delete_Vault=['rm','-r','~/Vault']
-    Send_Command(delete_Vault,emptyCallBack)
-    instance.create_image(args['create_image'])
+    delete_vault = ['rm', '-r', '~/Vault']
+    send_command(delete_vault, empty_call_back)
+    instance.create_image(image_name)
 
-def Send_Command(command,callback,dont_wait=False):
+
+def send_command(command,callback,dont_wait=False):
     init=time.time()
 
     print 'SendCommand:',' '.join(ssh+command)
@@ -193,7 +207,8 @@ def Send_Command(command,callback,dont_wait=False):
         if dont_wait: endReached=True
         time.sleep(0.01)
 
-def Launch_notebook(name=''):
+
+def launch_notebook(name=''):
     init=time.time()
 
     command=["scripts/launch_notebook.py",name,"2>&1"]
@@ -207,7 +222,7 @@ def Launch_notebook(name=''):
             return True
         return False
 
-    Send_Command(command,detect_launch_port)
+    send_command(command,detect_launch_port)
 
 
 if __name__ == "__main__":
@@ -241,7 +256,7 @@ if __name__ == "__main__":
 
     args = vars(parser.parse_args())
 
-    aws_access_key_id, aws_secret_access_key, user_name, key_pair_file, key_name = read_credentials()
+    credentials_path, aws_access_key_id, aws_secret_access_key, user_name, key_pair_file, key_name = read_credentials()
 
     # Open connection to aws
     try:
@@ -380,7 +395,7 @@ if __name__ == "__main__":
         sys.exit()
 
     if args['collection']:
-        Launch_notebook(args['collection'])
+        launch_notebook(args['collection'])
 
     if args['create_image']:
         print "creating a new AMI called %s" % args['create_image']
