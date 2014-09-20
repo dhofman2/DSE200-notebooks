@@ -132,7 +132,7 @@ def report_all_instances():
                     instance_alive = count  # point to first pending instance
                 print "ssh -i %s %s@%s" % (key_pair_file, login_id, instance.public_dns_name)
                 instances.append(instance)
-            count += 1
+                count += 1
 
     return instances, instance_alive
 
