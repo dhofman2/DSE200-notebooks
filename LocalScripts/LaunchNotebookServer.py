@@ -371,7 +371,7 @@ if __name__ == "__main__":
     ssh = ['ssh', '-i', key_pair_file, ('%s@%s' % (login_id, instance.public_dns_name))]
     print "\nTo connect to instance, use:\n%s" % ' '.join(ssh)
 
-    if args['password'] is None:
+    if args['password']:
         set_password(args['password'])
 
     if args['kill']:
@@ -379,12 +379,12 @@ if __name__ == "__main__":
         kill_all_notebooks()
         sys.exit()
 
-    if args['collection'] is None:
+    if args['collection']:
         Launch_notebook(args['collection'])
 
-    if args['create_image'] is None:
+    if args['create_image']:
         print "creating a new AMI called %s" % args['create_image']
         create_image(args['create_image'])
 
-    if args['Copy_Credentials'] is None:
+    if args['Copy_Credentials']:
        copy_credentials(args['Copy_Credentials'])
