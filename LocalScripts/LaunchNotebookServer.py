@@ -54,47 +54,49 @@ ami_name = 'MASDSE'
 
 # TODO: Set instance volumes to delete on terminate
 
-# Read Credentials
-#
-# If the EC2_VAULT environ var is set then use it, otherwise default to ~/Vault/
-try:
-    os.environ['EC2_VAULT']
-except KeyError:
-    vault = expanduser("~") + '/Vault'
-else:
-    vault = os.environ['EC2_VAULT']
 
-# Read credentials from vault/Creds.pkl
-try:
-    credentials_file = open(vault + '/Creds.pkl')
-    p = pickle.load(credentials_file)
-    credentials = p['launcher']
-except Exception, e:
-    print e
-    sys.exit('Could not read Creds.pkl')
+def read_credentials():
+    # If the EC2_VAULT environ var is set then use it, otherwise default to ~/Vault/
+    try:
+        os.environ['EC2_VAULT']
+    except KeyError:
+        vault = expanduser("~") + '/Vault'
+    else:
+        vault = os.environ['EC2_VAULT']
 
-for c in credentials:
-    if c == "key_id":
-        aws_access_key_id = credentials['key_id']
-    elif c == "secret_key":
-        aws_secret_access_key = credentials['secret_key']
-    elif c == "ID":
-        user_name = credentials['ID']
-    elif c == "ssh_key_pair_file":
-        key_pair_file = credentials['ssh_key_pair_file']    # name of local file storing keypair
-    elif c == "ssh_key_name":
-        key_name = credentials['ssh_key_name']              # name of keypair on AWS
+    # Read credentials from vault/Creds.pkl
+    try:
+        credentials_file = open(vault + '/Creds.pkl')
+        p = pickle.load(credentials_file)
+        credentials = p['launcher']
+    except Exception, e:
+        print e
+        sys.exit('Could not read Creds.pkl')
 
-# These credentials are required to be set before proceeding
-try:
-    aws_access_key_id
-    aws_secret_access_key
-    user_name
-    key_pair_file
-    key_name
-except NameError, e:
-    print e
-    sys.exit("Not all of the credentials were defined")
+    for c in credentials:
+        if c == "key_id":
+            plk_aws_access_key_id = credentials['key_id']
+        elif c == "secret_key":
+            plk_aws_secret_access_key = credentials['secret_key']
+        elif c == "ID":
+            plk_user_name = credentials['ID']
+        elif c == "ssh_key_pair_file":
+            plk_key_pair_file = credentials['ssh_key_pair_file']    # name of local file storing keypair
+        elif c == "ssh_key_name":
+            plk_key_name = credentials['ssh_key_name']              # name of keypair on AWS
+
+    # These credentials are required to be set before proceeding
+    try:
+        plk_aws_access_key_id
+        plk_aws_secret_access_key
+        plk_user_name
+        plk_key_pair_file
+        plk_key_name
+    except NameError, e:
+        print e
+        sys.exit("Not all of the credentials were defined")
+
+    return plk_aws_access_key_id, plk_aws_secret_access_key, plk_user_name, plk_key_pair_file, plk_key_name
 
 
 # Find all instances that are tagged as owned by user_name and the source is LaunchNotebookServer.py
@@ -238,6 +240,8 @@ if __name__ == "__main__":
                              'Wildcards are allowed but have to be preceded by a "\")')
 
     args = vars(parser.parse_args())
+
+    aws_access_key_id, aws_secret_access_key, user_name, key_pair_file, key_name = read_credentials()
 
     # Open connection to aws
     try:
