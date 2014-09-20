@@ -97,16 +97,6 @@ except NameError, e:
     sys.exit("Not all of the credentials were defined")
 
 
-# open connection
-def open_connection(aws_access_key_id,
-                    aws_secret_access_key):
-    conn = boto.ec2.connect_to_region("us-east-1",
-                                      aws_access_key_id=aws_access_key_id,
-                                      aws_secret_access_key=aws_secret_access_key)
-    print 'Created Connection=',conn
-    return conn
-
-
 # Find all instances that are tagged as owned by user_name and the source is LaunchNotebookServer.py
 def report_all_instances():
     reservations = conn.get_all_instances(filters={"tag:owner": user_name, "tag:source": "LaunchNotebookServer.py"})
@@ -219,6 +209,8 @@ def Launch_notebook(name=''):
 
 
 if __name__ == "__main__":
+    # Defaults
+    login_id = 'ubuntu'
 
     # parse parameters
     parser = argparse.ArgumentParser(description='launch an ec2 instance and then start an ipython notebook server')
@@ -247,18 +239,16 @@ if __name__ == "__main__":
 
     args = vars(parser.parse_args())
 
-    # open connection to aws
-    print 'The regions you are connected to are:',boto.ec2.regions()
+    # Open connection to aws
     try:
-        conn=open_connection(aws_access_key_id,aws_secret_access_key)
-    except:
-        e = sys.exc_info()[0]
-        print "Error: %s" % e
-        sys.exit("failed to connect to AWS")
+        conn = boto.ec2.connect_to_region("us-east-1",
+                                          aws_access_key_id=aws_access_key_id,
+                                          aws_secret_access_key=aws_secret_access_key)
+        print "Created Connection = %s" % conn
+    except Exception, e:
+        sys.exit("There was an error connecting to AWS: %s" % e)
 
     #Get and print information about all current instances
-    login_id='ubuntu'
-
     instance = report_all_instances()
 
     # If there is no instance that is pending or running, create one
