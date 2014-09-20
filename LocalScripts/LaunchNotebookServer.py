@@ -51,6 +51,8 @@ from urllib2 import urlopen
 ami_owner_id = '846273844940'
 ami_name = 'MASDSE'
 
+# TODO: Set instance volumes to delete on terminate
+
 # Read Credentials
 #
 # If the EC2_VAULT environ var is set then use it, otherwise default to ~/Vault/
@@ -105,38 +107,36 @@ def open_connection(aws_access_key_id,
     print 'Created Connection=',conn
     return conn
 
+
 #Get information about all current instances
 def report_all_instances():
-    reservations = conn.get_all_instances()
-    instances=[]
-    count=0
-    instance_alive=-1 # points to a pending or running instance, -1 indicates none
-    pending=True     # indicates whether instance_alive refers to a pending instance.
+    # Find all instances that are tagged as owned by user and the source is LaunchNotebookServer.py
+    reservations = conn.get_all_instances(filters={"tag:owner": user_name, "tag:source": "LaunchNotebookServer.py"})
+    instances = []
+    count = 0
+    instance_alive = -1     # points to a pending or running instance, -1 indicates none
+    pending = True          # indicates whether instance_alive refers to a pending instance.
 
-    print 'time: ',time.strftime('%H:%M:%S')
+    print 'time: %s' % time.strftime('%H:%M:%S')
 
     for reservation in reservations:
-        print '\nReservation: ',reservation
+        print "\nReservation: %s" % reservation
         for instance in reservation.instances:
-            if len(instance.tags)==2:
-                print 'Instance tags=',instance.tags
-            else:
-                print 'instance no.=',count,'instance name=',instance,'DNS name = ',instance.public_dns_name
-                print 'Instance state=',instance.state
-                print 'Instance tags=',len(instance.tags)
-                print 'This looks like a private instance launched by this script!'
-                #This is the private instance, probably launched by this script.
-                if instance_alive==-1 and instance.state != 'terminated':
-                    if instance.state =='running' and pending:
-                        instance_alive=count # point to first running instance
-                        pending=False
-                    elif instance.state =='pending' and pending:
-                        instance_alive=count # point to first pending instance
-                    print 'ssh -i %s %s@%s' % (key_pair_file,login_id,instance.public_dns_name)
-                    instances.append(instance)
-                    count+=1
+            print "Instance number = %s | Instance name = %s | DNS name = %s | Instance state = %s" % \
+                  (count, instance.id, instance.public_dns_name, instance.state)
+            print "This looks like a private instance launched by this script!"
+            # This is the private instance, probably launched by this script.
+            if instance_alive == -1 and instance.state != 'terminated':
+                if instance.state == 'running' and pending:
+                    instance_alive = count  # point to first running instance
+                    pending = False
+                elif instance.state == 'pending' and pending:
+                    instance_alive = count  # point to first pending instance
+                print "ssh -i %s %s@%s" % (key_pair_file, login_id, instance.public_dns_name)
+                instances.append(instance)
+            count += 1
 
-    return (instances,instance_alive)
+    return instances, instance_alive
 
 def emptyCallBack(line): return False
 
@@ -356,6 +356,12 @@ if __name__ == "__main__":
 
         print 'Launched Instance',reservation
 
+        # Tag the instances with the user_name
+        for i in reservation.instances:
+            i.add_tag("Name", user_name)
+            i.add_tag("owner", user_name)
+            i.add_tag("source", "LaunchNotebookServer.py")
+
         (instances,instance_alive) = report_all_instances()
 
     # choose an instance and check that it is running
@@ -365,9 +371,17 @@ if __name__ == "__main__":
         time.sleep(10)
         instance.update()
 
-    print '\n Instance Ready!',time.strftime('%H:%M:%S'),instance.state
-    ssh=['ssh','-i',key_pair_file,('%s@%s' % (login_id,instance.public_dns_name))]
-    print "To connect to instance, use:\n",' '.join(ssh)
+    # Make sure the volumes are always tagged properly
+    volumes = conn.get_all_volumes(filters={"attachment.instance-id": instance.id})
+    for v in volumes:
+        v.add_tag("Name", user_name)
+        v.add_tag("owner", user_name)
+        v.add_tag("source", "LaunchNotebookServer.py")
+
+    print "\nInstance Ready! %s %s" % (time.strftime('%H:%M:%S'), instance.state)
+
+    ssh = ['ssh', '-i', key_pair_file, ('%s@%s' % (login_id, instance.public_dns_name))]
+    print "\nTo connect to instance, use:\n%s" % ' '.join(ssh)
 
     if(args['password'] != None):
         set_password(args['password'])
