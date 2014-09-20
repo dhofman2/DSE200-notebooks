@@ -46,6 +46,7 @@ import argparse
 from os.path import expanduser
 import json
 from urllib2 import urlopen
+import dateutil.parser
 
 # AMI name: ERM_Utils These two lines last updated 8/27/2014
 ami_owner_id = '846273844940'
@@ -106,35 +107,32 @@ def open_connection(aws_access_key_id,
     return conn
 
 
-#Get information about all current instances
+# Find all instances that are tagged as owned by user_name and the source is LaunchNotebookServer.py
 def report_all_instances():
-    # Find all instances that are tagged as owned by user and the source is LaunchNotebookServer.py
     reservations = conn.get_all_instances(filters={"tag:owner": user_name, "tag:source": "LaunchNotebookServer.py"})
-    instances = []
-    count = 0
-    instance_alive = -1     # points to a pending or running instance, -1 indicates none
-    pending = True          # indicates whether instance_alive refers to a pending instance.
+    return_instance = None
 
-    print 'time: %s' % time.strftime('%H:%M:%S')
+    # Print out the number of instances found
+    if len(reservations) > 0:
+        print "\n\n%s private instances launched by this script:" % len(reservations)
+    else:
+        print "\n\nNo private instances launched by this script found!"
 
-    for reservation in reservations:
-        print "\nReservation: %s" % reservation
-        for instance in reservation.instances:
-            print "Instance number = %s | Instance name = %s | DNS name = %s | Instance state = %s" % \
-                  (count, instance.id, instance.public_dns_name, instance.state)
-            print "This looks like a private instance launched by this script!"
-            # This is the private instance, probably launched by this script.
-            if instance_alive == -1 and instance.state != 'terminated':
-                if instance.state == 'running' and pending:
-                    instance_alive = count  # point to first running instance
-                    pending = False
-                elif instance.state == 'pending' and pending:
-                    instance_alive = count  # point to first pending instance
-                print "ssh -i %s %s@%s" % (key_pair_file, login_id, instance.public_dns_name)
-                instances.append(instance)
-                count += 1
+    for r in reservations:
+        for n in r.instances:
+            print "\tInstance name = %s | Instance state = %s | Launched = %s | DNS name = %s" % \
+                  (n.id, n.state, n.launch_time, n.public_dns_name)
 
-    return instances, instance_alive
+            # Only consider instances that are running or pending
+            if n.state == "running" or n.state == "pending":
+                # Return the instance that was launched last
+                if return_instance is None:
+                    return_instance = n
+                else:
+                    if dateutil.parser.parse(n.launch_time) > dateutil.parser.parse(return_instance.launch_time):
+                        return_instance = n
+
+    return return_instance
 
 def emptyCallBack(line): return False
 
@@ -266,9 +264,11 @@ if __name__ == "__main__":
 
     #Get and print information about all current instances
     login_id='ubuntu'
-    (instances,instance_alive) = report_all_instances()
 
-    if instance_alive==-1: # if there is no instance that is pending or running, create one
+    instance = report_all_instances()
+
+    # If there is no instance that is pending or running, create one
+    if instance is None:
         instance_type=args['instance_type']
         disk_size=args['disk_size']
 
@@ -363,10 +363,9 @@ if __name__ == "__main__":
             i.add_tag("owner", user_name)
             i.add_tag("source", "LaunchNotebookServer.py")
 
-        (instances,instance_alive) = report_all_instances()
+        instance = report_all_instances()
 
-    # choose an instance and check that it is running
-    instance = instances[instance_alive]
+    # Keep checking the instance state and loop until it is running
     while instance.state != 'running':
         print '\r', time.strftime('%H:%M:%S'), 'Instance status: ', instance.state
         time.sleep(10)
