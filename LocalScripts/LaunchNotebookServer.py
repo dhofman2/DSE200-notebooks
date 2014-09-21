@@ -171,52 +171,49 @@ def create_image(image_name):
     instance.create_image(image_name)
 
 
-def send_command(command,callback,dont_wait=False):
-    init=time.time()
-
-    print 'SendCommand:',' '.join(ssh+command)
+def send_command(command, callback, dont_wait=False):
+    print 'SendCommand:', ' '.join(ssh+command)
     ssh_process = subprocess.Popen(ssh+command,
                                    shell=False,
                                    stdin=subprocess.PIPE,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
 
-    def dataWaiting(source):
+    def data_waiting(source):
         return select.select([source], [], [], 0) == ([source], [], [])
 
-    endReached=False
-    while not endReached:
+    end_reached = False
+    while not end_reached:
         # Check for errors before checking the output
-        if dataWaiting(ssh_process.stderr):
-            line=ssh_process.stderr.readline()
-            if len(line)>0:
+        if data_waiting(ssh_process.stderr):
+            line = ssh_process.stderr.readline()
+            if len(line) > 0:
                 print line
             else:
-                endReached=True
+                end_reached = True
 
-        if dataWaiting(ssh_process.stdout):
-            line=ssh_process.stdout.readline()
-            if len(line)>0:
+        if data_waiting(ssh_process.stdout):
+            line = ssh_process.stdout.readline()
+            if len(line) > 0:
                 print line,
 
-                endReached = endReached | callback(line)
+                end_reached = end_reached | callback(line)
 
-                matchEnd=re.match('=== END ===',line)
-                if matchEnd:
-                    endReached=True
-        if dont_wait: endReached=True
+                match_end = re.match('=== END ===', line)
+                if match_end:
+                    end_reached = True
+        if dont_wait:
+            end_reached = True
         time.sleep(0.01)
 
 
 def launch_notebook(name=''):
-    init=time.time()
-
-    command=["scripts/launch_notebook.py",name,"2>&1"]
+    command = ["scripts/launch_notebook.py", name, "2>&1"]
 
     def detect_launch_port(line):
-        match=re.search('IPython\ Notebook\ is\ running\ at\:.*system\]\:(\d+)/',line)
+        match = re.search('IPython\ Notebook\ is\ running\ at\:.*system\]\:(\d+)/', line)
         if match:
-            port_no=match.group(1)
+            port_no = match.group(1)
             print 'opening https://'+instance.public_dns_name+':'+port_no+'/'
             webbrowser.open('https://'+instance.public_dns_name+':'+port_no+'/')
             return True
