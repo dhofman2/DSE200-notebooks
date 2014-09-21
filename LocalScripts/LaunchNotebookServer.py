@@ -51,6 +51,7 @@ from os.path import expanduser
 import json
 from urllib2 import urlopen
 import dateutil.parser
+import datetime
 
 # AMI name: ERM_Utils These two lines last updated 8/27/2014
 ami_owner_id = '846273844940'
@@ -362,6 +363,7 @@ if __name__ == "__main__":
             i.add_tag("Name", user_name)
             i.add_tag("owner", user_name)
             i.add_tag("source", "LaunchNotebookServer.py")
+            i.add_tag("created", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
         instance = report_all_instances()
 
@@ -377,6 +379,7 @@ if __name__ == "__main__":
         v.add_tag("Name", user_name)
         v.add_tag("owner", user_name)
         v.add_tag("source", "LaunchNotebookServer.py")
+        v.add_tag("instance", instance.id)
 
     print "\nInstance Ready! %s %s" % (time.strftime('%H:%M:%S'), instance.state)
 
