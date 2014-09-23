@@ -52,44 +52,46 @@ import json
 from urllib2 import urlopen
 import dateutil.parser
 import datetime
+import logging
+
 
 # AMI name: ERM_Utils These two lines last updated 8/27/2014
 ami_owner_id = '846273844940'
 ami_name = 'MASDSE'
+login_id = 'ubuntu'
 
 # TODO: Set instance volumes to delete on terminate
 
 
-def read_credentials():
-    # If the EC2_VAULT environ var is set then use it, otherwise default to ~/Vault/
-    try:
-        os.environ['EC2_VAULT']
-    except KeyError:
-        vault = expanduser("~") + '/Vault'
-    else:
-        vault = os.environ['EC2_VAULT']
-
+def read_credentials(c_vault):
     # Read credentials from vault/Creds.pkl
     try:
-        p_credentials_path = vault + '/Creds.pkl'
+        logging.info("(RC) Reading credentials from %s/Creds.pkl" % c_vault)
+        p_credentials_path = c_vault + '/Creds.pkl'
         p_credentials_file = open(p_credentials_path)
         p = pickle.load(p_credentials_file)
         credentials = p['launcher']
     except Exception, e:
         print e
-        sys.exit('Could not read Creds.pkl')
+        logging.info("(RC) Could not read %s/Creds.pkl" % c_vault)
+        sys.exit("Could not read %s/Creds.pkl" % c_vault)
 
     for c in credentials:
         if c == "key_id":
             p_aws_access_key_id = credentials['key_id']
+            logging.info("(RC) Found aws_access_key_id: %s" % p_aws_access_key_id)
         elif c == "secret_key":
             p_aws_secret_access_key = credentials['secret_key']
+            logging.info("(RC) Found aws_secret_access_key: ...")
         elif c == "ID":
             p_user_name = credentials['ID']
+            logging.info("(RC) Found user_name: %s" % p_user_name)
         elif c == "ssh_key_pair_file":
             p_key_pair_file = credentials['ssh_key_pair_file']    # name of local file storing keypair
+            logging.info("(RC) Found key_pair_file: %s" % p_key_pair_file)
         elif c == "ssh_key_name":
             p_key_name = credentials['ssh_key_name']              # name of keypair on AWS
+            logging.info("(RC) Found key_name: %s" % p_key_name)
 
     # These credentials are required to be set before proceeding
     try:
@@ -100,25 +102,30 @@ def read_credentials():
         p_key_pair_file
         p_key_name
     except NameError, e:
-        print e
-        sys.exit("Not all of the credentials were defined")
+        logging.info("(RC) Not all of the credentials were defined: %s" % e)
+        sys.exit("Not all of the credentials were defined: %s" % e)
 
     return p_credentials_path, p_aws_access_key_id, p_aws_secret_access_key, p_user_name, p_key_pair_file, p_key_name
 
 
 # Find all instances that are tagged as owned by user_name and the source is LaunchNotebookServer.py
 def report_all_instances():
+    logging.info("(RI) Getting instances using filters: tag:owner:%s, tag:source:LaunchNotebookServer.py" % user_name)
     reservations = conn.get_all_instances(filters={"tag:owner": user_name, "tag:source": "LaunchNotebookServer.py"})
     return_instance = None
 
     # Print out the number of instances found
     if len(reservations) > 0:
+        logging.info("(RI) %s private instances launched by this script:" % len(reservations))
         print "\n\n%s private instances launched by this script:" % len(reservations)
     else:
+        logging.info("(RI) No private instances launched by this script found!")
         print "\n\nNo private instances launched by this script found!"
 
     for r in reservations:
         for n in r.instances:
+            logging.info("(RI) Instance name = %s | Instance state = %s | Launched = %s | DNS name = %s" %
+                         (n.id, n.state, n.launch_time, n.public_dns_name))
             print "\tInstance name = %s | Instance state = %s | Launched = %s | DNS name = %s" % \
                   (n.id, n.state, n.launch_time, n.public_dns_name)
 
@@ -130,6 +137,13 @@ def report_all_instances():
                 else:
                     if dateutil.parser.parse(n.launch_time) > dateutil.parser.parse(return_instance.launch_time):
                         return_instance = n
+
+    if return_instance is None:
+        logging.info("(RI) No running instances found")
+    else:
+        logging.info("(RI) Selected: Instance name = %s | Instance state = %s | Launched = %s | DNS name = %s" %
+                     (return_instance.id, return_instance.state, return_instance.launch_time,
+                      return_instance.public_dns_name))
 
     return return_instance
 
@@ -231,6 +245,7 @@ def check_security_groups():
 
     # Open http://httpbin.org/ip to get the public ip address
     ip_address = json.load(urlopen('http://httpbin.org/ip'))['origin']
+    logging.info("(SG) Found IP address: %s" % ip_address)
 
     security_group_name = user_name
 
@@ -240,7 +255,7 @@ def check_security_groups():
 
     for sg in conn.get_all_security_groups():
         if sg.name == security_group_name:
-            print "Security group found..."
+            logging.info("(SG) Found security group: %s" % security_group_name)
             security_group_found = True
 
             tcp_rule = False
@@ -251,34 +266,38 @@ def check_security_groups():
             for rule in sg.rules:
                 if (str(rule.ip_protocol) == "tcp" and str(rule.from_port) == "0" and
                         str(rule.to_port) == "65535" and str(ip_address) + "/32" in str(rule.grants)):
-                    print "Found TCP Rule"
+                    logging.info("(SG) Found TCP rule: %s : %s" % (security_group_name, ip_address))
                     tcp_rule = True
 
                 if (str(rule.ip_protocol) == "udp" and str(rule.from_port) == "0" and
                         str(rule.to_port) == "65535" and str(ip_address) + "/32" in str(rule.grants)):
-                    print "Found UDP Rule"
+                    logging.info("(SG) Found UDP rule: %s : %s" % (security_group_name, ip_address))
                     udp_rule = True
 
                 if (str(rule.ip_protocol) == "icmp" and str(rule.from_port) == "-1" and
                         str(rule.to_port) == "-1" and str(ip_address) + "/32" in str(rule.grants)):
-                    print "Found ICMP Rule"
+                    logging.info("(SG) Found ICMP rule: %s : %s" % (security_group_name, ip_address))
                     icmp_rule = True
 
             # If the current ip address is missing from the security group then add it
             if tcp_rule is False:
+                logging.info("(SG) Adding " + str(ip_address) + " (TCP) to " + security_group_name + " security group")
                 print "Adding " + str(ip_address) + " (TCP) to " + security_group_name + " security group"
                 sg.authorize('tcp', 0, 65535, str(ip_address) + "/32")  # Allow all TCP
             if udp_rule is False:
+                logging.info("(SG) Adding " + str(ip_address) + " (UDP) to " + security_group_name + " security group")
                 print "Adding " + str(ip_address) + " (UDP) to " + security_group_name + " security group"
                 sg.authorize('udp', 0, 65535, str(ip_address) + "/32")  # Allow all UDP
             if icmp_rule is False:
+                logging.info("(SG) Adding " + str(ip_address) + " (ICMP) to " + security_group_name + " security group")
                 print "Adding " + str(ip_address) + " (ICMP) to " + security_group_name + " security group"
                 sg.authorize('icmp', -1, -1, str(ip_address) + "/32")   # Allow all ICMP
 
     # If a security group does not exist for the user then create it
     if security_group_found is False:
-        print "Creating security group..."
-        security_group_description = "MAS DSE created on " + str(time.strftime("%m/%d/%Y"))
+        logging.info("(SG) Creating security group: %s : %s" % (security_group_name, ip_address))
+        print "Creating security group: %s" % security_group_name
+        security_group_description = "MAS DSE created on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         sg = conn.create_security_group(security_group_name, security_group_description)
         sg.authorize('tcp', 0, 65535, str(ip_address) + "/32")  # Allow all TCP
         sg.authorize('udp', 0, 65535, str(ip_address) + "/32")  # Allow all UDP
@@ -288,9 +307,6 @@ def check_security_groups():
 
 
 if __name__ == "__main__":
-    # Defaults
-    login_id = 'ubuntu'
-
     # parse parameters
     parser = argparse.ArgumentParser(description='launch an ec2 instance and then start an ipython notebook server')
     parser.add_argument('-c', '--collection',
@@ -318,15 +334,41 @@ if __name__ == "__main__":
 
     args = vars(parser.parse_args())
 
-    credentials_path, aws_access_key_id, aws_secret_access_key, user_name, key_pair_file, key_name = read_credentials()
+    # If the EC2_VAULT environ var is set then use it, otherwise default to ~/Vault/
+    try:
+        os.environ['EC2_VAULT']
+    except KeyError:
+        vault = expanduser("~") + '/Vault'
+    else:
+        vault = os.environ['EC2_VAULT']
+
+    # Exit if no vault directory is found
+    if not os.path.isdir(vault):
+        sys.exit("Vault directory not found.")
+
+    # Create a logs directory in the vault directory if one does not exist
+    if not os.path.exists(vault + "/logs"):
+        os.makedirs(vault + "/logs")
+
+    # Save a log to vault/logs/LaunchNotebookServer.log
+    logging.basicConfig(filename=vault + "/logs/LaunchNotebookServer.log", format='%(asctime)s %(message)s',
+                        level=logging.INFO)
+
+    logging.info("LaunchNotebookServer.py started")
+    logging.info("Vault: %s" % vault)
+
+    credentials_path, aws_access_key_id, aws_secret_access_key, user_name, key_pair_file, key_name = \
+        read_credentials(vault)
 
     # Open connection to aws
     try:
         conn = boto.ec2.connect_to_region("us-east-1",
                                           aws_access_key_id=aws_access_key_id,
                                           aws_secret_access_key=aws_secret_access_key)
+        logging.info("Created Connection = %s" % conn)
         print "Created Connection = %s" % conn
     except Exception, e:
+        logging.info("There was an error connecting to AWS: %s" % e)
         sys.exit("There was an error connecting to AWS: %s" % e)
 
     # Make sure a security group exists for the user and their current ip address has been added
@@ -340,6 +382,7 @@ if __name__ == "__main__":
         instance_type = args['instance_type']
         disk_size = args['disk_size']
 
+        logging.info("Launching an EC2 instance: type=%s, ami=%s, disk_size=%s" % (instance_type, ami_name, disk_size))
         print "Launching an EC2 instance: type=%s, ami=%s, disk_size=%s" % (instance_type, ami_name, disk_size)
 
         bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping()
@@ -348,22 +391,28 @@ if __name__ == "__main__":
             dev_sda1.size = disk_size   # size in Gigabytes
             bdm['/dev/sda1'] = dev_sda1
 
+        logging.info("Getting AMI image using filters: owner-id:%s, name:%s" % (ami_owner_id, ami_name))
         images = conn.get_all_images(filters={'owner-id': ami_owner_id, 'name': ami_name})
 
         # Attempt to start an instance only if one AMI image is returned
         if len(images) == 1:
+            logging.info("Found %s AMI image. Launching instance with key_name: %s, instance_type: %s, "
+                         "security_group: %s" % (len(images), key_name, instance_type, security_groups))
             reservation = images[0].run(key_name=key_name,
                                         instance_type=instance_type,
                                         security_groups=security_groups,
                                         block_device_map=bdm)
         else:
-            print "Error finding AMI Image"
-            sys.exit("Error finding AMI Image")
+            logging.info("Error finding AMI image: %s images found" % len(images))
+            sys.exit("Error finding AMI image")
 
+        logging.info("Launched Instance: %s" % reservation)
         print 'Launched Instance: %s' % reservation
 
         # Tag the instances with the user_name
         for i in reservation.instances:
+            logging.info("Tagging instance %s with Name:%s, owner:%s, source:LaunchNotebookServer.py, created:%s" %
+                         (i.id, user_name, user_name, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
             i.add_tag("Name", user_name)
             i.add_tag("owner", user_name)
             i.add_tag("source", "LaunchNotebookServer.py")
@@ -373,21 +422,29 @@ if __name__ == "__main__":
 
     # Keep checking the instance state and loop until it is running
     while instance.state != 'running':
+        logging.info("Check instance state: %s Instance status: %s " % (instance.id, instance.state))
         print '\r', time.strftime('%H:%M:%S'), 'Instance status: ', instance.state
         time.sleep(10)
         instance.update()
 
+    logging.info("Instance started: %s" % instance.id)
+
     # Make sure the volumes are always tagged properly
+    logging.info("Getting attached volumes using filters: attachment.instance-id:%s" % instance.id)
     volumes = conn.get_all_volumes(filters={"attachment.instance-id": instance.id})
     for v in volumes:
+        logging.info("Tagging volume %s with Name:%s, owner:%s, source:LaunchNotebookServer.py, instance:%s" %
+                     (v.id, user_name, user_name, instance.id))
         v.add_tag("Name", user_name)
         v.add_tag("owner", user_name)
         v.add_tag("source", "LaunchNotebookServer.py")
         v.add_tag("instance", instance.id)
 
+    logging.info("Instance Ready!")
     print "\nInstance Ready! %s %s" % (time.strftime('%H:%M:%S'), instance.state)
 
     ssh = ['ssh', '-i', key_pair_file, ('%s@%s' % (login_id, instance.public_dns_name))]
+    logging.info("To connect to instance, use: %s" % ' '.join(ssh))
     print "\nTo connect to instance, use:\n%s" % ' '.join(ssh)
 
     if args['password']:
@@ -406,4 +463,6 @@ if __name__ == "__main__":
         create_image(args['create_image'])
 
     if args['Copy_Credentials']:
-       copy_credentials(args['Copy_Credentials'])
+        copy_credentials(args['Copy_Credentials'])
+
+    logging.info("LaunchNotebookServer.py finished")
