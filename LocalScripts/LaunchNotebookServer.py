@@ -130,7 +130,7 @@ def report_all_instances():
                   (n.id, n.state, n.launch_time, n.public_dns_name)
 
             # Only consider instances that are running or pending
-            if n.state == "running" or n.state == "pending":
+            if n.state == "running" or n.state == "pending" or n.state == "stopped":
                 # Return the instance that was launched last
                 if return_instance is None:
                     return_instance = n
@@ -141,11 +141,35 @@ def report_all_instances():
     if return_instance is None:
         logging.info("(RI) No running instances found")
     else:
+        # Start the instance if the returned instance has been stopped
+        if return_instance.state == "stopped":
+            logging.info("(RI) Starting stopped instance: %s" % return_instance.id)
+            print "(Starting stopped instance: %s" % return_instance.id
+            return_instance.start()
         logging.info("(RI) Selected: Instance name = %s | Instance state = %s | Launched = %s | DNS name = %s" %
                      (return_instance.id, return_instance.state, return_instance.launch_time,
                       return_instance.public_dns_name))
 
     return return_instance
+
+
+# Find all instances that are tagged as owned by user_name and the source is LaunchNotebookServer.py
+def stop_all_instances():
+    logging.info("(SI) Getting instances using filters: tag:owner:%s, tag:source:LaunchNotebookServer.py" % user_name)
+    reservations = conn.get_all_instances(filters={"tag:owner": user_name, "tag:source": "LaunchNotebookServer.py"})
+
+    logging.info("(SI) Stopping all running instances!")
+    print "\n\nStopping all running instances!"
+
+    for r in reservations:
+        for n in r.instances:
+            # Only consider instances that are running or pending
+            if n.state == "running" or n.state == "pending":
+                logging.info("(SI) Stopping instance name = %s | Instance state = %s | Launched = %s | DNS name = %s" %
+                             (n.id, n.state, n.launch_time, n.public_dns_name))
+                print "Stopping instance name = %s | Instance state = %s | Launched = %s | DNS name = %s" % \
+                      (n.id, n.state, n.launch_time, n.public_dns_name)
+                n.stop()
 
 
 def empty_call_back(line):
@@ -331,6 +355,8 @@ if __name__ == "__main__":
                         help='Copy the credentials files to the Vault directory on the AWS instance. ' +
                              'Parameter is a the full path of the files you want to transfer to the vault. ' +
                              'Wildcards are allowed but have to be preceded by a "\")')
+    parser.add_argument('-s', '--stop_instances', dest='stop', action='store_true', default=False,
+                        help='stop all running ec2 instances')
 
     args = vars(parser.parse_args())
 
@@ -440,12 +466,13 @@ if __name__ == "__main__":
         v.add_tag("source", "LaunchNotebookServer.py")
         v.add_tag("instance", instance.id)
 
-    logging.info("Instance Ready!")
-    print "\nInstance Ready! %s %s" % (time.strftime('%H:%M:%S'), instance.state)
+    if len(sys.argv) == 1:
+        logging.info("Instance Ready!")
+        print "\nInstance Ready! %s %s" % (time.strftime('%H:%M:%S'), instance.state)
 
-    ssh = ['ssh', '-i', key_pair_file, ('%s@%s' % (login_id, instance.public_dns_name))]
-    logging.info("To connect to instance, use: %s" % ' '.join(ssh))
-    print "\nTo connect to instance, use:\n%s" % ' '.join(ssh)
+        ssh = ['ssh', '-i', key_pair_file, ('%s@%s' % (login_id, instance.public_dns_name))]
+        logging.info("To connect to instance, use: %s" % ' '.join(ssh))
+        print "\nTo connect to instance, use:\n%s" % ' '.join(ssh)
 
     if args['password']:
         set_password(args['password'])
@@ -464,5 +491,8 @@ if __name__ == "__main__":
 
     if args['Copy_Credentials']:
         copy_credentials(args['Copy_Credentials'])
+
+    if args['stop']:
+        stop_all_instances()
 
     logging.info("LaunchNotebookServer.py finished")
