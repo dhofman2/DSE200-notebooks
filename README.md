@@ -1,4 +1,4 @@
-UCSD_BigData
-============
+DSE200
+======
 
-A repository for scripts and notebooks for the UCSD big data course, Spring 2014.
+Repository for the course "Python for data analysis"
