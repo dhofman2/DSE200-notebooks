@@ -1,40 +1,5 @@
 #!/usr/bin/env python
-"""### A Script for Launching and managing an iPython notebook server on AWS ###
- # Written by Yoav Freund, March 2014
-
-### Before you run this script ###
- Before running this script, you need to install boto on your local machine (not ec2).
- See https://pypi.python.org/pypi/boto.
- You can use either "sudo pip install boto" or "sudo easy_install boto"
-
-### Security credentials ###
- In order to launch a notebook you need to first establish credentials on AWS. Set these credentials by editing the values in the file ../../Vault/AWSCredentials.py
-
-Here are the steps you need to follow to achieve this
-
- 1. Open an AWS account
- 2. Create a key-pair so that  you can connect securely to your instances.
- 3. Create a Security group to define which IPs can connect to your instances and through which ports.
- You need to complete these steps only one time. Later sessions can use the same credentials. If you are registered to the
- class you will get a credit of $100 towards your use of AWS. To get this credit goto the page "consolidated billing" (xxxx) and send a request to the class instructor.
-
- #### Security credentials ####
- In order to start your EC2 Session you need two things:
-
- 1. A key-pair
- 2. A security group
-
- Before you try to connect to an EC2 instance make sure that the
- security group that you are using contains the IP address that you
- are connecting from. The security group estricts which IP addresses
- are allowed to connect to which ports. Best set using the AWS web
- interface.
-
- Google "my ip" will give you your current address. Then go to the EC2
- web interface and make sure that you have rules for connecting from
- your current address to all of the ports.
-
-"""
+### A Script for Launching and managing an iPython notebook server on AWS ###
 
 # ### Definitions of procedures ###
 import boto.ec2
@@ -59,8 +24,6 @@ import logging
 ami_owner_id = '846273844940'
 ami_name = 'MASDSE'
 login_id = 'ubuntu'
-
-# TODO: Set instance volumes to delete on terminate
 
 
 def read_credentials(c_vault):
@@ -408,7 +371,7 @@ if __name__ == "__main__":
                              'Wildcards are allowed but have to be preceded by a "\")')
     parser.add_argument('-s', '--stop_instances', dest='stop', action='store_true', default=False,
                         help='Stop all running ec2 instances')
-    parser.add_argument('-r', '--term_instances', dest='terminate', action='store_true', default=False,
+    parser.add_argument('--term_instances', dest='terminate', action='store_true', default=False,
                         help='Terminate all running and stopped ec2 instances. THIS WILL DELETE ALL DATA STORED ' +
                               'ON THE INSTANCES! Backup your data first!')
 
@@ -535,11 +498,14 @@ if __name__ == "__main__":
         v.add_tag("source", "LaunchNotebookServer.py")
         v.add_tag("instance", instance.id)
 
+    # Define the ssh command
+    ssh = ['ssh', '-i', key_pair_file, ('%s@%s' % (login_id, instance.public_dns_name))]
+    logging.info("The SSH Command: %s" % ' '.join(ssh))
+
     if len(sys.argv) == 1:
         logging.info("Instance Ready!")
         print "\nInstance Ready! %s %s" % (time.strftime('%H:%M:%S'), instance.state)
 
-        ssh = ['ssh', '-i', key_pair_file, ('%s@%s' % (login_id, instance.public_dns_name))]
         logging.info("To connect to instance, use: %s" % ' '.join(ssh))
         print "\nTo connect to instance, use:\n%s" % ' '.join(ssh)
 
