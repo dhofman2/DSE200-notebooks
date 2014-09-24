@@ -129,7 +129,7 @@ def report_all_instances():
             print "\tInstance name = %s | Instance state = %s | Launched = %s | DNS name = %s" % \
                   (n.id, n.state, n.launch_time, n.public_dns_name)
 
-            # Only consider instances that are running or pending
+            # Only consider instances that are running or pending or stopped
             if n.state == "running" or n.state == "pending" or n.state == "stopped":
                 # Return the instance that was launched last
                 if return_instance is None:
@@ -153,7 +153,7 @@ def report_all_instances():
     return return_instance
 
 
-# Find all instances that are tagged as owned by user_name and the source is LaunchNotebookServer.py
+# Find and stop all instances that are tagged as owned by user_name and the source is LaunchNotebookServer.py
 def stop_all_instances():
     logging.info("(SI) Getting instances using filters: tag:owner:%s, tag:source:LaunchNotebookServer.py" % user_name)
     reservations = conn.get_all_instances(filters={"tag:owner": user_name, "tag:source": "LaunchNotebookServer.py"})
@@ -170,6 +170,57 @@ def stop_all_instances():
                 print "Stopping instance name = %s | Instance state = %s | Launched = %s | DNS name = %s" % \
                       (n.id, n.state, n.launch_time, n.public_dns_name)
                 n.stop()
+
+
+# Find and terminate all instances that are tagged as owned by user_name and the source is LaunchNotebookServer.py
+def terminate_all_instances():
+    logging.info("(TI) Getting instances using filters: tag:owner:%s, tag:source:LaunchNotebookServer.py" % user_name)
+    reservations = conn.get_all_instances(filters={"tag:owner": user_name, "tag:source": "LaunchNotebookServer.py"})
+
+    logging.info("(TI) Terminating all running instances!")
+    print "\n\nTerminating all running instances!"
+
+    for r in reservations:
+        for n in r.instances:
+            # Consider instances that have not been terminated
+            if not n.state == "terminated":
+                logging.info("(TI) Terminating instance name = %s | Instance state = %s | Launched = %s | "
+                             "DNS name = %s" % (n.id, n.state, n.launch_time, n.public_dns_name))
+                print "Terminating instance name = %s | Instance state = %s | Launched = %s | DNS name = %s" % \
+                      (n.id, n.state, n.launch_time, n.public_dns_name)
+
+                # Get all of the volumes attached to the instance
+                logging.info("(TI) Getting attached volumes using filters: attachment.instance-id:%s" % n.id)
+                t_volumes = conn.get_all_volumes(filters={"attachment.instance-id": n.id})
+
+                n.terminate()
+
+                # Keep checking the instance state and loop until it has been terminated
+                while not n.state == 'terminated':
+                    logging.info("(TI) Waiting for instance to terminate: %s Instance status: %s " %
+                                 (n.id, n.state))
+                    print "%s Waiting for instance to terminate. Instance status: %s" % (time.strftime('%H:%M:%S'),
+                                                                                         n.state)
+                    time.sleep(10)
+                    n.update()
+
+                logging.info("(TI) Deleting %s attached volumes attached to instance: %s" % (len(t_volumes), n.id))
+                print "Deleting %s attached volumes attached to instance: %s" % (len(t_volumes), n.id)
+
+                for w in t_volumes:
+                    logging.info("(TI) Volume id: %s Attach State: %s" % (w.id, w.attachment_state()))
+
+                    while w.attachment_state() == 'attached':
+                        logging.info("(TI) Waiting for volume to detach. Volume %s is still attached to instance %s" %
+                                     (w.id, n.id))
+                        print "%s Waiting for volume to detach. Volume %s is still attached to instance %s" % \
+                              (time.strftime('%H:%M:%S'), w.id, n.id)
+                        time.sleep(10)
+                        w.update()
+
+                    logging.info("(TI) Deleting volume %s from instance %s" % (w.id, n.id))
+                    print "Deleting volume %s from instance %s" % (w.id, n.id)
+                    w.delete()
 
 
 def empty_call_back(line):
@@ -356,7 +407,10 @@ if __name__ == "__main__":
                              'Parameter is a the full path of the files you want to transfer to the vault. ' +
                              'Wildcards are allowed but have to be preceded by a "\")')
     parser.add_argument('-s', '--stop_instances', dest='stop', action='store_true', default=False,
-                        help='stop all running ec2 instances')
+                        help='Stop all running ec2 instances')
+    parser.add_argument('-r', '--term_instances', dest='terminate', action='store_true', default=False,
+                        help='Terminate all running and stopped ec2 instances. THIS WILL DELETE ALL DATA STORED ' +
+                              'ON THE INSTANCES! Backup your data first!')
 
     args = vars(parser.parse_args())
 
@@ -396,6 +450,18 @@ if __name__ == "__main__":
     except Exception, e:
         logging.info("There was an error connecting to AWS: %s" % e)
         sys.exit("There was an error connecting to AWS: %s" % e)
+
+    # All instances have been requested to be stopped
+    if args['stop']:
+        stop_all_instances()
+        logging.info("LaunchNotebookServer.py finished")
+        sys.exit("All instances stopped!")
+
+    # All instances have been requested to be terminated
+    if args['terminate']:
+        terminate_all_instances()
+        logging.info("LaunchNotebookServer.py finished")
+        sys.exit("All instances terminated!")
 
     # Make sure a security group exists for the user and their current ip address has been added
     security_groups = check_security_groups()
@@ -444,6 +510,9 @@ if __name__ == "__main__":
             i.add_tag("source", "LaunchNotebookServer.py")
             i.add_tag("created", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
+        # Give AWS some time to process the request before checking the status of the instance
+        time.sleep(10)
+
         instance = report_all_instances()
 
     # Keep checking the instance state and loop until it is running
@@ -491,8 +560,5 @@ if __name__ == "__main__":
 
     if args['Copy_Credentials']:
         copy_credentials(args['Copy_Credentials'])
-
-    if args['stop']:
-        stop_all_instances()
 
     logging.info("LaunchNotebookServer.py finished")
