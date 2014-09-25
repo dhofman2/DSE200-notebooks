@@ -5,7 +5,7 @@ import shlex
 import re
 
 root='/home/ubuntu/'
-filename=root+'UCSD_BigData/AWS_scripts/NotebookCollections.md'
+filename=root+'scripts/NotebookCollections.md'
 
 def printFile(filename):
     file=open(filename,'r')
