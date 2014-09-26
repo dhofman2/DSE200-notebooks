@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 from IPython.lib import passwd
 import string,os,sys
 
