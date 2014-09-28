@@ -242,11 +242,11 @@ def send_command(command, callback, dont_wait=False):
             line = ssh_process.stderr.readline()
             if len(line) > 0:
                 print line
-            else:
-                end_reached = True
 
         if data_waiting(ssh_process.stdout):
             line = ssh_process.stdout.readline()
+            if not line:
+                end_reached = True
             if len(line) > 0:
                 print line,
 
@@ -257,7 +257,7 @@ def send_command(command, callback, dont_wait=False):
                     end_reached = True
         if dont_wait:
             end_reached = True
-        time.sleep(0.01)
+        time.sleep(0.1)
 
 
 def launch_notebook(name=''):
