@@ -3,7 +3,7 @@
 Please keep this file updated, merging notebooks is hard!
 
 * 1.PregnancyLengthAnalysis.ipynb
-* 2.PythonBasics.ipynb **Locked by yfreund**
+* 2.PythonBasics.ipynb
 * 3.PythonBasics-Excercises.ipynb 
-* 4.Unix, sys and os.ipynb
+* 4.Unix, sys and os.ipynb  **Locked by yfreund**
 * 5.Unix exercises.ipynb
