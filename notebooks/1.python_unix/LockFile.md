@@ -4,6 +4,6 @@ Please keep this file updated, merging notebooks is hard!
 
 * 1.PregnancyLengthAnalysis.ipynb
 * 2.PythonBasics.ipynb **Locked by yfreund**
-* 3.PythonBasics-Excercises.ipynb **Locked by sachin**
+* 3.PythonBasics-Excercises.ipynb 
 * 4.Unix, sys and os.ipynb
 * 5.Unix exercises.ipynb
