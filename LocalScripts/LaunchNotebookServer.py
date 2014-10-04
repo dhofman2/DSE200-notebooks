@@ -132,7 +132,15 @@ def stop_all_instances():
                              (n.id, n.state, n.launch_time, n.public_dns_name))
                 print "Stopping instance name = %s | Instance state = %s | Launched = %s | DNS name = %s" % \
                       (n.id, n.state, n.launch_time, n.public_dns_name)
+
                 n.stop()
+
+                # Keep checking the instance state and loop until it has been stopped
+                while not n.state == 'stopped':
+                    logging.info("(SI) Waiting for instance to stop: %s Instance status: %s " % (n.id, n.state))
+                    print "%s Waiting for instance to stop. Instance status: %s" % (time.strftime('%H:%M:%S'), n.state)
+                    time.sleep(10)
+                    n.update()
 
 
 # Find and terminate all instances that are tagged as owned by user_name and the source is LaunchNotebookServer.py
