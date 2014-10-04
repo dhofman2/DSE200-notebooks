@@ -92,6 +92,15 @@ def report_all_instances():
             print "\tInstance name = %s | Instance state = %s | Launched = %s | DNS name = %s" % \
                   (n.id, n.state, n.launch_time, n.public_dns_name)
 
+            # Wait for instances to stop or shut down before trying to determine their state
+            if n.state == "stopping" or n.state == "shutting-down":
+                # Keep checking the instance state and loop until the state change has completed
+                while n.state == 'stopping' or n.state == "shutting-down":
+                    logging.info("(RI) Waiting for instance %s to finish %s " % (n.id, n.state))
+                    print "%s Waiting for instance to finish %s" % (time.strftime('%H:%M:%S'), n.state)
+                    time.sleep(10)
+                    n.update()
+
             # Only consider instances that are running or pending or stopped
             if n.state == "running" or n.state == "pending" or n.state == "stopped":
                 # Return the instance that was launched last
@@ -107,7 +116,7 @@ def report_all_instances():
         # Start the instance if the returned instance has been stopped
         if return_instance.state == "stopped":
             logging.info("(RI) Starting stopped instance: %s" % return_instance.id)
-            print "(Starting stopped instance: %s" % return_instance.id
+            print "Starting stopped instance: %s" % return_instance.id
             return_instance.start()
         logging.info("(RI) Selected: Instance name = %s | Instance state = %s | Launched = %s | DNS name = %s" %
                      (return_instance.id, return_instance.state, return_instance.launch_time,
