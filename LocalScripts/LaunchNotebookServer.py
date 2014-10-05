@@ -516,7 +516,8 @@ if __name__ == "__main__":
         v.add_tag("instance", instance.id)
 
     # Define the ssh command
-    ssh = ['ssh', '-Xi', key_pair_file, ('%s@%s' % (login_id, instance.public_dns_name))]
+    ssh = ["ssh", "-Xi", key_pair_file, "%s@%s" % (login_id, instance.public_dns_name), "-o",
+           "StrictHostKeyChecking=no"]
     logging.info("The SSH Command: %s" % ' '.join(ssh))
 
     if len(sys.argv) == 1:
