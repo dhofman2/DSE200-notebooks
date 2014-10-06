@@ -65,7 +65,13 @@ if __name__ == "__main__":
         else:
             print "Launching: %s" % loc
             os.chdir(loc)
-            command_line = 'ipython notebook --profile=nbserver --port-retries=0'
+            command_line = "ipython notebook --profile=nbserver --port-retries=0"
+
+            # If a hashed password was passed to the launch script then launch the notebook server with that password
+            for argv in sys.argv:
+                if not argv.find("sha1") == -1:
+                    command_line += " --NotebookApp.password=%s" % argv
+
             command = shlex.split(command_line)
             print "Current directory: %s" % os.getcwd()
             print "Command: %s" % command
