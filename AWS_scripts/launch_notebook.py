@@ -1,68 +1,72 @@
 #!/usr/bin/env python
-import sys,os
+import sys
+import os
 import subprocess as sp
 import shlex
 import re
 
-root='/home/ubuntu/'
-filename=root+'scripts/NotebookCollections.md'
+root = "/home/ubuntu/"
+filename = "%s/scripts/NotebookCollections.md" % root
 
-def printFile(filename):
-    file=open(filename,'r')
-    print '############### Available Notebook collections: ##############\n'
-    for line in file.readlines():
+
+def print_file(print_filename):
+    f = open(print_filename, 'r')
+    print "############### Available Notebook collections: ##############\n"
+
+    for line in f.readlines():
         print line,
-    file.close()
+    f.close()
+
     return
 
-def parseFile(filename):
-    file=open(filename,'r')
-    D={}
-    for line in file.readlines():
-        match=re.search(r'\#\#\#\#\s*__\[(\S+)\]__\s+(\S+)',line)
+
+def parse_file(parse_filename):
+    f = open(parse_filename, 'r')
+    notebooks = {}
+    for line in f.readlines():
+        match = re.search(r'####\s*__\[(\S+)\]__\s+(\S+)', line)
         if match:
-            name=match.group(1); path=root+match.group(2)
-            #print name,path
+            notebook_name = match.group(1)
+            notebook_path = root + match.group(2)
+
             #check that the path exists.
-            if not os.path.isdir(path):
-                print 'Error: name=%s, path %s does not exist as a directory' % (name,path)
+            if not os.path.isdir(notebook_path):
+                print 'Error: name=%s, path %s does not exist as a directory' % (notebook_name, notebook_path)
             else:
-                D[name]=path
-    file.close()
-    return D
+                notebooks[notebook_name] = notebook_path
+    f.close()
+    return notebooks
 
 
-### Main ###
-
-if len(sys.argv)<2:
-    print 'not enough parameters:',sys.argv
-    printFile(filename)
-else:
-    loc='none'
-    name=sys.argv[1]
-    DirectLink=re.match('@(\S+)',name)
-    if DirectLink:
-        loc= root+DirectLink.group(1)
-        print 'Using direct link to location',loc
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print "not enough parameters: %s" % sys.argv
+        print_file(filename)
     else:
-        D=parseFile(filename)
-        if name in D.keys():
-            loc=D[name]
-            print 'Using collection link from',name,'to',loc
+        loc = 'none'
+        name = sys.argv[1]
+        direct_link = re.match('@(\S+)', name)
+        if direct_link:
+            loc = root + direct_link.group(1)
+            print "Using direct link to location: %s" % loc
         else:
-            print 'Could not find notebook directory, printing Collection' 
-            printFile(filename)
+            d = parse_file(filename)
+            if name in d.keys():
+                loc = d[name]
+                print "Using collection link from %s to %s" % (name, loc)
+            else:
+                print "Could not find notebook directory, printing Collection"
+                print_file(filename)
 
-    print 'Checking if ',loc,'exists as a directory',
-    if not os.path.isdir(loc):
-        print ' Directory does not exist!'
-    else:
-        print 'Launching ',loc
-        os.chdir(loc)
-#       command_line='ipython notebook --profile=nbserver &'
-        command_line='ipython notebook --profile=nbserver'
-        command = shlex.split(command_line)
-        print 'current directory:',os.getcwd()
-        print 'Command:',command
-        sp.Popen(command)
+        print "Checking if %s exists as a directory" % loc
 
+        if not os.path.isdir(loc):
+            print "Directory does not exist!"
+        else:
+            print "Launching: %s" % loc
+            os.chdir(loc)
+            command_line = 'ipython notebook --profile=nbserver'
+            command = shlex.split(command_line)
+            print "Current directory: %s" % os.getcwd()
+            print "Command: %s" % command
+            sp.Popen(command)
