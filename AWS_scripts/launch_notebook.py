@@ -65,7 +65,7 @@ if __name__ == "__main__":
         else:
             print "Launching: %s" % loc
             os.chdir(loc)
-            command_line = 'ipython notebook --profile=nbserver'
+            command_line = 'ipython notebook --profile=nbserver --port-retries=0'
             command = shlex.split(command_line)
             print "Current directory: %s" % os.getcwd()
             print "Command: %s" % command
