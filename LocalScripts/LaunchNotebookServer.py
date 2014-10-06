@@ -203,13 +203,9 @@ def terminate_all_instances():
                     w.delete()
 
 
-def empty_call_back(line):
-    return False
-
-
 def kill_all_notebooks():
     command = ['scripts/CloseAllNotebooks.py']
-    send_command(command, empty_call_back)
+    send_command(command)
 
 
 def set_credentials():
@@ -220,7 +216,7 @@ def copy_credentials(local_dir):
     from glob import glob
     print 'Entered copy_credentials:', local_dir
     mkdir = ['mkdir', 'Vault']
-    send_command(mkdir, empty_call_back, dont_wait=True)
+    send_command(mkdir)
     local_dir_list = glob(local_dir)
     scp = ['scp', '-i', key_pair_file]+local_dir_list+[('%s@%s:Vault/' % (login_id, instance.public_dns_name))]
     print ' '.join(scp)
@@ -231,65 +227,78 @@ def set_password(password):
     if len(password) < 6:
         sys.exit('Password must be at least 6 characters long')
     command = ["scripts/SetNotebookPassword.py", password]
-    send_command(command, empty_call_back)
+    send_command(command)
 
 
 def create_image(image_name):
     #delete the Vault directory, where all of the secret keys and passwords reside.
     delete_vault = ['rm', '-r', '~/Vault']
-    send_command(delete_vault, empty_call_back)
+    send_command(delete_vault)
     instance.create_image(image_name)
 
 
-def send_command(command, callback, dont_wait=False):
+def empty_call_back(line):
+    return False
+
+
+def send_command(command, stderr_call_back=empty_call_back, stdout_call_back=empty_call_back, display=True):
+    return_variable = False
+
     print 'SendCommand:', ' '.join(ssh+command)
-    ssh_process = subprocess.Popen(ssh+command,
-                                   shell=False,
-                                   stdin=subprocess.PIPE,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
+    command_output = subprocess.Popen(ssh+command,
+                                      shell=False,
+                                      stdin=subprocess.PIPE,
+                                      stdout=subprocess.PIPE,
+                                      stderr=subprocess.PIPE)
 
     def data_waiting(source):
         return select.select([source], [], [], 0) == ([source], [], [])
 
-    end_reached = False
-    while not end_reached:
-        # Check for errors before checking the output
-        if data_waiting(ssh_process.stderr):
-            line = ssh_process.stderr.readline()
-            if len(line) > 0:
-                print line
+    while True:
+        # Read from stderr and print any errors
+        if data_waiting(command_output.stderr):
+            command_stderr = command_output.stderr.readline()
+            if len(command_stderr) > 0:
+                if display:
+                    print command_stderr,
+                # Run custom stderr_call_back routine
+                return_variable |= stderr_call_back(command_stderr)
 
-        if data_waiting(ssh_process.stdout):
-            line = ssh_process.stdout.readline()
-            if not line:
-                end_reached = True
-            if len(line) > 0:
-                print line,
+        # Read from stdout
+        if data_waiting(command_output.stdout):
+            command_stdout = command_output.stdout.readline()
+            # Stop if the end of stdout has been reached
+            if not command_stdout:
+                break
+            else:
+                if display:
+                    print command_stdout,
+                # Run custom stdout_call_back routine
+                return_variable |= stdout_call_back(command_stdout)
 
-                end_reached = end_reached | callback(line)
-
-                match_end = re.match('=== END ===', line)
-                if match_end:
-                    end_reached = True
-        if dont_wait:
-            end_reached = True
         time.sleep(0.1)
+
+    return return_variable
 
 
 def launch_notebook(name=''):
     command = ["scripts/launch_notebook.py", name, "2>&1"]
 
+    # Parse the output of the launch_notebook.py command and exit once the iPython Notebook server is launched
     def detect_launch_port(line):
-        match = re.search('IPython\ Notebook\ is\ running\ at\:.*system\]\:(\d+)/', line)
+        match = re.search('IPython Notebook is running at:.*system\]:(\d+)/', line)
+
         if match:
             port_no = match.group(1)
-            print 'opening https://'+instance.public_dns_name+':'+port_no+'/'
-            webbrowser.open('https://'+instance.public_dns_name+':'+port_no+'/')
-            return True
+            logging.info("Opening https://%s:%s/" % (instance.public_dns_name, port_no))
+            print "Opening https://%s:%s/" % (instance.public_dns_name, port_no)
+            webbrowser.open("https://%s:%s/" % (instance.public_dns_name, port_no))
+
+            logging.info("LaunchNotebookServer.py finished")
+            sys.exit("iPython Notebook Server Started")
         return False
 
-    send_command(command, detect_launch_port)
+    send_command(command, stderr_call_back=detect_launch_port, stdout_call_back=detect_launch_port)
 
 
 def check_security_groups():
@@ -390,7 +399,7 @@ if __name__ == "__main__":
                         help='Stop all running ec2 instances')
     parser.add_argument('--term_instances', dest='terminate', action='store_true', default=False,
                         help='Terminate all running and stopped ec2 instances. THIS WILL DELETE ALL DATA STORED ' +
-                              'ON THE INSTANCES! Backup your data first!')
+                             'ON THE INSTANCES! Backup your data first!')
 
     args = vars(parser.parse_args())
 
