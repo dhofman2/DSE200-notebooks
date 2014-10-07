@@ -18,6 +18,7 @@ from urllib2 import urlopen
 import dateutil.parser
 import datetime
 import logging
+from IPython.lib import passwd
 
 
 # AMI name: ERM_Utils These two lines last updated 8/27/2014
@@ -281,8 +282,22 @@ def send_command(command, stderr_call_back=empty_call_back, stdout_call_back=emp
     return return_variable
 
 
-def launch_notebook(name=''):
-    command = ["scripts/launch_notebook.py", name, "2>&1"]
+def launch_notebook(notebook_name=''):
+    command = ["scripts/launch_notebook.py", notebook_name]
+
+    # If vault/notebook_pass.txt exists, send the hashed contents of the file to AWS
+    if os.path.isfile(vault + "/notebook_pass.txt"):
+        logging.info("Found %s/notebook_pass.txt" % vault)
+
+        f = open(vault + "/notebook_pass.txt", "r")
+        notebook_pass = f.read().rstrip()
+        logging.info("notebook_pass.txt: %s" % notebook_pass)
+        f.close()
+
+        command.append(passwd(notebook_pass))
+
+    # Redirect stderr to stdout
+    command.append("2>&1")
 
     # Parse the output of the launch_notebook.py command and exit once the iPython Notebook server is launched
     def detect_launch_port(line):
