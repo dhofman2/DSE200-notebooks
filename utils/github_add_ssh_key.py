@@ -70,7 +70,7 @@ if __name__ == "__main__":
     if not os.path.exists(vault + "/logs"):
         os.makedirs(vault + "/logs")
 
-    # Save a log to vault/logs/LaunchNotebookServer.log
+    # Save a log to vault/logs/github_add_ssh_key.log
     logging.basicConfig(filename=vault + "/logs/github_add_ssh_key.log", format='%(asctime)s %(message)s',
                         level=logging.INFO)
 
