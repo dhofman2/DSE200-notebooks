@@ -301,16 +301,30 @@ def launch_notebook(notebook_name=''):
 
     # Parse the output of the launch_notebook.py command and exit once the iPython Notebook server is launched
     def detect_launch_port(line):
-        match = re.search('IPython Notebook is running at:.*system\]:(\d+)/', line)
+        launch_match = re.search('IPython Notebook is running at:.*system\]:(\d+)/', line)
+        already_launched_match = re.search('The port (\d+) is already in use, trying another random port', line)
 
-        if match:
-            port_no = match.group(1)
-            logging.info("Opening https://%s:%s/" % (instance.public_dns_name, port_no))
-            print "Opening https://%s:%s/" % (instance.public_dns_name, port_no)
+        # Check if a new instance of iPython Notebook was launched and open the URL in the default system browser
+        if launch_match:
+            port_no = launch_match.group(1)
+            logging.info("New iPython Notebook Launched, opening https://%s:%s/" % (instance.public_dns_name, port_no))
+            print "New iPython Notebook Launched, opening https://%s:%s/" % (instance.public_dns_name, port_no)
             webbrowser.open("https://%s:%s/" % (instance.public_dns_name, port_no))
 
             logging.info("LaunchNotebookServer.py finished")
             sys.exit("iPython Notebook Server Started")
+
+        # Check if an existing instance of iPython Notebook is running and open the URL in the default system browser
+        if already_launched_match:
+            port_no = already_launched_match.group(1)
+            logging.info("iPython Notebook already running, opening https://%s:%s/" %
+                         (instance.public_dns_name, port_no))
+            print "iPython Notebook already running, opening https://%s:%s/" % (instance.public_dns_name, port_no)
+            webbrowser.open("https://%s:%s/" % (instance.public_dns_name, port_no))
+
+            logging.info("LaunchNotebookServer.py finished")
+            sys.exit("iPython Notebook Server is already running, reopening URL")
+
         return False
 
     send_command(command, stderr_call_back=detect_launch_port, stdout_call_back=detect_launch_port)
