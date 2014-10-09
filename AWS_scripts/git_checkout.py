@@ -152,6 +152,29 @@ if __name__ == "__main__":
     ssh_add = ["ssh-add", "%s/github_id_rsa" % vault]
     run_command(ssh_add, display=False)
 
+    # Function to parse the output of the verify_ssh command
+    def parse_verify_ssh_response(response):
+        logging.info("(PVSR) %s" % response.strip())
+
+        # If the authentication is successful and the user name equals the private repository name then return true
+        if not response.find(args['repository']) == -1:
+            logging.info("(PVSR) Successful authentication for %s: %s" % (args['repository'], response.strip()))
+            return True
+
+        return False
+
+    # SSH to github.com to verify the SSH key was successfully added to github.com
+    logging.info("Verifying SSH keys by sshing to github.com")
+    verify_ssh = ["ssh", "-T", "git@github.com", "-o", "StrictHostKeyChecking=no"]
+    if run_command(verify_ssh, stdout_call_back=parse_verify_ssh_response, stderr_call_back=parse_verify_ssh_response,
+                   display=False):
+        logging.info("SSH test to github.com successful!")
+        print "SSH test to github.com successful!"
+    else:
+        logging.info("SSH test to github.com failed!")
+        logging.info("github_add_ssh_key.py finished")
+        sys.exit("SSH test to github.com failed!")
+
     #
     # Clone private repository to local repository
     #
