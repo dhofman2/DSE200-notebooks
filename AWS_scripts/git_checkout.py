@@ -149,8 +149,6 @@ if __name__ == "__main__":
         # Find SSH_AUTH_SOCK and set it as an environment variable
         if not response.find("SSH_AUTH_SOCK") == -1:
             logging.info("(PSAR) Found SSH_AUTH_SOCK: %s" % response.strip())
-            #i = response.split()
-            #j = i[0].split("=")
             os.environ['SSH_AUTH_SOCK'] = response.split()[0].split("=")[1].replace(";", "")
             logging.info("SSH_AUTH_SOCK environment variable set: %s" % os.environ['SSH_AUTH_SOCK'])
 
