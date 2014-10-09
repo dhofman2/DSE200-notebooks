@@ -142,10 +142,25 @@ if __name__ == "__main__":
         f.write("Host github.com\n\tStrictHostKeyChecking no\n")
         f.close()
 
+    # Function to parse the output of the verify_ssh command
+    def parse_ssh_agent_response(response):
+        logging.info("(PSAR) %s" % response.strip())
+
+        # Find SSH_AUTH_SOCK and set it as an environment variable
+        if not response.find("SSH_AUTH_SOCK") == -1:
+            logging.info("(PSAR) Found SSH_AUTH_SOCK: %s" % response.strip())
+            #i = response.split()
+            #j = i[0].split("=")
+            os.environ['SSH_AUTH_SOCK'] = response.split()[0].split("=")[1].replace(";", "")
+            logging.info("SSH_AUTH_SOCK environment variable set: %s" % os.environ['SSH_AUTH_SOCK'])
+
+        return False
+
     # Start the ssh agent
     logging.info("Starting ssh-agent")
     ssh_agent = ["ssh-agent", "-s"]
-    run_command(ssh_agent, display=False)
+    run_command(ssh_agent, stdout_call_back=parse_ssh_agent_response, stderr_call_back=parse_ssh_agent_response,
+                display=False)
 
     # Add the ssh key to the ssh agent
     logging.info("Adding SSH key: %s/github_id_rsa" % vault)
