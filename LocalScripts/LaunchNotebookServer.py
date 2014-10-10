@@ -25,6 +25,7 @@ from IPython.lib import passwd
 ami_owner_id = '846273844940'
 ami_name = 'MASDSE'
 login_id = 'ubuntu'
+new_instance = False
 
 
 def read_credentials(c_vault):
@@ -399,6 +400,53 @@ def check_security_groups():
     return c_security_groups
 
 
+def checkout_private_repository():
+    logging.info("Got new_instance, attempting to checkout the student's private repository")
+
+    # Verify vault/github_id_rsa exists since it is needed to clone the student's private repository
+    if os.path.isfile(vault + "/github_id_rsa"):
+        logging.info("Found: %s/github_id_rsa" % vault)
+
+        # Function to parse the output of the test_ssh_available command
+        def parse_test_ssh_available_response(response):
+            logging.info("(PTSA) %s" % response.strip())
+
+            # If the remote shell echos True then SSH is available on the remote EC2 instance
+            if not response.find("True") == -1:
+                logging.info("(PTSA) Found True: %s" % response.strip())
+                return True
+
+            return False
+
+        # ssh to the remote EC2 instance and echo True to verify that the ssh service is available
+        test_ssh_available = ['echo', '"True"']
+
+        while not send_command(test_ssh_available, stderr_call_back=parse_test_ssh_available_response,
+                               stdout_call_back=parse_test_ssh_available_response):
+            logging.info("Waiting for EC2 instance to finish booting up")
+            print "Waiting for EC2 instance to finish booting up"
+            time.sleep(10)
+
+        logging.info("EC2 instance is now available")
+        print "EC2 instance is now available"
+        logging.info("Copying GitHub SSH key to EC2 Instance")
+        print "Copying GitHub SSH key to EC2 Instance"
+
+        # Copy vault/github_id_rsa to the EC2 instance
+        copy_credentials(vault + "/github_id_rsa")
+
+        logging.info("Checking out git@github.com:mas-dse/%s.git on the EC2 instance" % user_name)
+        print "Checking out git@github.com:mas-dse/%s.git on the EC2 instance" % user_name
+
+        command = ['scripts/git_checkout.py', '-r', user_name]
+        send_command(command)
+    else:
+        logging.info("Did not find: %s/github_id_rsa, not attempting to checkout the private repository on the"
+                     "EC2 instance." % vault)
+        print "Did not find: %s/github_id_rsa, not attempting to checkout the private repository on the EC2 " \
+              "instance." % vault
+
+
 if __name__ == "__main__":
     # parse parameters
     parser = argparse.ArgumentParser(description='launch an ec2 instance and then start an ipython notebook server')
@@ -489,6 +537,7 @@ if __name__ == "__main__":
 
     # If there is no instance that is pending or running, create one
     if instance is None:
+        new_instance = True
         instance_type = args['instance_type']
         disk_size = args['disk_size']
 
@@ -559,6 +608,9 @@ if __name__ == "__main__":
     logging.info("The SSH Command: %s" % ' '.join(ssh))
 
     if len(sys.argv) == 1:
+        if new_instance:
+            checkout_private_repository()
+
         logging.info("Instance Ready!")
         print "\nInstance Ready! %s %s" % (time.strftime('%H:%M:%S'), instance.state)
 
