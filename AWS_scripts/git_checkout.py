@@ -169,9 +169,9 @@ if __name__ == "__main__":
     def parse_verify_ssh_response(response):
         logging.info("(PVSR) %s" % response.strip())
 
-        # If the authentication is successful and the user name equals the private repository name then return true
-        if not response.find(args['repository']) == -1:
-            logging.info("(PVSR) Successful authentication for %s: %s" % (args['repository'], response.strip()))
+        # Check if SSH returns the successfully authenticated message
+        if not response.find("You've successfully authenticated, but GitHub does not provide shell access") == -1:
+            logging.info("(PVSR) Successful authentication: %s" % response.strip())
             return True
 
         return False
