@@ -83,7 +83,7 @@ if __name__ == "__main__":
 
     vault = expanduser("~") + '/Vault'
     local_repository = expanduser("~") + '/DSE200-notebooks'
-    upstream_repository = "DSE200-notebooks.git"
+    upstream_repository = "mas-dse/DSE200-notebooks.git"
 
     # Exit if no vault directory is found
     if not os.path.isdir(vault):
