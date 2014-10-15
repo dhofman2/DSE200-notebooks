@@ -82,8 +82,8 @@ if __name__ == "__main__":
     args = vars(parser.parse_args())
 
     vault = expanduser("~") + '/Vault'
-    local_repository = expanduser("~") + '/DSE200'
-    remote_repository = "mas-dse/DSE200.git"
+    local_repository = expanduser("~") + '/DSE200-notebooks'
+    upstream_repository = "DSE200-notebooks.git"
 
     # Exit if no vault directory is found
     if not os.path.isdir(vault):
@@ -113,7 +113,7 @@ if __name__ == "__main__":
         logging.info("Found %s" % local_repository)
 
         # Check if the local repository is a clone of the class repository then remove it
-        if get_git_remote(remote_repository, "origin"):
+        if get_git_remote(upstream_repository, "origin"):
             logging.info("%s is the class repository" % local_repository)
             print "%s is the class repository" % local_repository
 
@@ -219,30 +219,30 @@ if __name__ == "__main__":
     #
     # Add class repository as the upstream master of the local repository
     #
-    logging.info("Adding git@github.com:%s as the upstream master to %s" % (remote_repository, local_repository))
-    print "Adding git@github.com:%s as the upstream master to %s\n" % (remote_repository, local_repository)
+    logging.info("Adding git@github.com:%s as the upstream master to %s" % (upstream_repository, local_repository))
+    print "Adding git@github.com:%s as the upstream master to %s\n" % (upstream_repository, local_repository)
     git_add_upstream = ["git", "--git-dir=%s/.git" % local_repository, "--work-tree=%s" % local_repository,
-                        "remote", "add", "upstream", "git@github.com:%s" % remote_repository]
+                        "remote", "add", "upstream", "git@github.com:%s" % upstream_repository]
     run_command(git_add_upstream, display=False)
-    logging.info("git@github.com:%s added as the upstream master to %s" % (remote_repository, local_repository))
+    logging.info("git@github.com:%s added as the upstream master to %s" % (upstream_repository, local_repository))
 
     # Verify the upstream master of the local repository is the class repository
-    if get_git_remote(remote_repository, "upstream"):
-        logging.info("The upstream master of %s is git@github.com:%s" % (remote_repository, local_repository))
+    if get_git_remote(upstream_repository, "upstream"):
+        logging.info("The upstream master of %s is git@github.com:%s" % (upstream_repository, local_repository))
     else:
-        logging.info("The upstream master of %s is NOT git@github.com:%s" % (remote_repository, local_repository))
+        logging.info("The upstream master of %s is NOT git@github.com:%s" % (upstream_repository, local_repository))
         logging.info("git_checkout.py finished")
-        sys.exit("The upstream master of %s is NOT git@github.com:%s" % (remote_repository, local_repository))
+        sys.exit("The upstream master of %s is NOT git@github.com:%s" % (upstream_repository, local_repository))
 
     #
     # Fetch the updates from the upstream master
     #
-    logging.info("Fetching the updates from git@github.com:%s" % remote_repository)
-    print "Fetching the updates from git@github.com:%s\n" % remote_repository
+    logging.info("Fetching the updates from git@github.com:%s" % upstream_repository)
+    print "Fetching the updates from git@github.com:%s\n" % upstream_repository
     git_fetch_upstream = ["git", "--git-dir=%s/.git" % local_repository, "--work-tree=%s" % local_repository,
                           "fetch", "upstream"]
     run_command(git_fetch_upstream, display=False)
-    logging.info("Downloaded updated from git@github.com:%s" % remote_repository)
+    logging.info("Downloaded updated from git@github.com:%s" % upstream_repository)
 
     # Function to parse the output of the get_git_upstream_added command
     def parse_git_upstream_added_response(response):
@@ -300,12 +300,12 @@ if __name__ == "__main__":
     # Merge the upstream master with the local repository, if there is a conflict choose the updates from the local
     # repository
     #
-    logging.info("Merging git@github.com:%s with %s" % (remote_repository, local_repository))
-    print "Merging git@github.com:%s with %s\n" % (remote_repository, local_repository)
+    logging.info("Merging git@github.com:%s with %s" % (upstream_repository, local_repository))
+    print "Merging git@github.com:%s with %s\n" % (upstream_repository, local_repository)
     git_merge_upstream = ["git", "--git-dir=%s/.git" % local_repository, "--work-tree=%s" % local_repository,
                           "merge", "-X", "ours", "upstream/master"]
     run_command(git_merge_upstream, display=False)
-    logging.info("Merged git@github.com:%s with %s" % (remote_repository, local_repository))
-    print "Merged git@github.com:%s with %s\n" % (remote_repository, local_repository)
+    logging.info("Merged git@github.com:%s with %s" % (upstream_repository, local_repository))
+    print "Merged git@github.com:%s with %s\n" % (upstream_repository, local_repository)
 
     logging.info("git_checkout.py finished")
