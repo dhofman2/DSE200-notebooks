@@ -9,7 +9,7 @@ Notebooks for first class: the basics of python and unix.
 #### __[Class2]__ notebooks/lecture_2_github_io_numpy_pandas
 Notebooks for the second class: Using python data analysis tools
 
-#### __[Pandas]__ notebooks/HW_Pandas
+#### __[Pandas]__ notebooks/HW_2_Pandas
 A sequence of classes and excercises on Pandas.
 
 ## END ##
